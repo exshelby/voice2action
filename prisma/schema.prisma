@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FeedbackStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+
+  @@map("feedback_status")
+}
+
+model Feedback {
+  id             String         @id @default(uuid()) @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  audioObjectKey String         @map("audio_object_key")
+  mimeType       String         @map("mime_type")
+  fileSizeBytes  Int            @map("file_size_bytes")
+  durationMs     Int?           @map("duration_ms")
+  status         FeedbackStatus @default(RECEIVED)
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("feedback")
+}
