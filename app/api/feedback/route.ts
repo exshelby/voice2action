@@ -30,8 +30,17 @@ function errorResponse(message: string, status: number) {
 
 export async function POST(request: Request) {
   let storedFilePath: string | null = null;
+  let feedbackCreated = false;
 
   try {
+    const webhookUrl = process.env.N8N_WEBHOOK_URL;
+
+    if (!webhookUrl) {
+      console.error("N8N_WEBHOOK_URL is not configured.");
+
+      return errorResponse("Feedback automation is not configured.", 503);
+    }
+
     const formData = await request.formData();
     const audio = formData.get("audio");
 
@@ -86,6 +95,58 @@ export async function POST(request: Request) {
       },
     });
 
+    feedbackCreated = true;
+
+    try {
+      const webhookResponse = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          feedbackId: feedback.id,
+          status: feedback.status,
+          audioObjectKey,
+          mimeType,
+          fileSizeBytes: audio.size,
+          receivedAt: feedback.createdAt,
+        }),
+        signal: AbortSignal.timeout(5_000),
+      });
+
+      if (!webhookResponse.ok) {
+        throw new Error(
+          `n8n webhook returned HTTP ${webhookResponse.status}.`,
+        );
+      }
+    } catch (workflowError) {
+      console.error("Feedback automation could not be started:", workflowError);
+
+      await prisma.feedback
+        .update({
+          where: {
+            id: feedback.id,
+          },
+          data: {
+            status: "FAILED",
+          },
+        })
+        .catch((statusError) => {
+          console.error("Feedback status could not be updated:", statusError);
+        });
+
+      return Response.json(
+        {
+          error:
+            "Your recording was saved, but automation could not be started.",
+          feedbackId: feedback.id,
+        },
+        {
+          status: 502,
+        },
+      );
+    }
+
     return Response.json(
       {
         feedbackId: feedback.id,
@@ -97,7 +158,7 @@ export async function POST(request: Request) {
       },
     );
   } catch (error) {
-    if (storedFilePath) {
+    if (storedFilePath && !feedbackCreated) {
       await unlink(storedFilePath).catch(() => undefined);
     }
 
