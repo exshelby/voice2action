@@ -22,6 +22,10 @@ export default function VoiceRecorder() {
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [recording, setRecording] = useState<Recording | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedFeedbackId, setSubmittedFeedbackId] = useState<string | null>(
+    null,
+  );
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -48,6 +52,7 @@ export default function VoiceRecorder() {
 
   async function startRecording() {
     setErrorMessage(null);
+    setSubmittedFeedbackId(null);
     setStatus("requesting");
 
     if (
@@ -129,27 +134,75 @@ export default function VoiceRecorder() {
   }
 
   function stopRecording() {
-  const recorder = mediaRecorderRef.current;
+    const recorder = mediaRecorderRef.current;
 
-  if (recorder?.state === "recording") {
-    setStatus("stopping");
-    recorder.stop();
-  }
-}
-
-function deleteRecording() {
-  if (recordingUrlRef.current) {
-    URL.revokeObjectURL(recordingUrlRef.current);
-    recordingUrlRef.current = null;
+    if (recorder?.state === "recording") {
+      setStatus("stopping");
+      recorder.stop();
+    }
   }
 
-  setRecording(null);
-  setErrorMessage(null);
-  setStatus("idle");
-}
+  function deleteRecording() {
+    if (recordingUrlRef.current) {
+      URL.revokeObjectURL(recordingUrlRef.current);
+      recordingUrlRef.current = null;
+    }
+
+    setRecording(null);
+    setErrorMessage(null);
+    setSubmittedFeedbackId(null);
+    setStatus("idle");
+  }
+
+  async function submitRecording() {
+    if (!recording || recording.blob.size === 0) {
+      setErrorMessage("Please make a recording before submitting.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const formData = new FormData();
+
+      formData.append(
+        "audio",
+        recording.blob,
+        "voice-feedback-recording",
+      );
+
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = (await response.json()) as {
+        feedbackId?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !result.feedbackId) {
+        throw new Error(
+          result.error ?? "Your recording could not be submitted.",
+        );
+      }
+
+      setSubmittedFeedbackId(result.feedbackId);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Your recording could not be submitted. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   const isRecording = status === "recording";
-  const isBusy = status === "requesting" || status === "stopping";
+  const isBusy =
+    status === "requesting" || status === "stopping" || isSubmitting;
 
   let buttonLabel = "Start recording";
 
@@ -166,9 +219,8 @@ function deleteRecording() {
   return (
     <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center">
       <div
-        className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-3xl ${
-          isRecording ? "animate-pulse bg-red-100" : "bg-indigo-100"
-        }`}
+        className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-3xl ${isRecording ? "animate-pulse bg-red-100" : "bg-indigo-100"
+          }`}
         aria-hidden="true"
       >
         🎙️
@@ -188,36 +240,60 @@ function deleteRecording() {
         type="button"
         onClick={isRecording ? stopRecording : startRecording}
         disabled={isBusy}
-        className={`mt-6 rounded-full px-6 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
-          isRecording
+        className={`mt-6 rounded-full px-6 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${isRecording
             ? "bg-red-600 hover:bg-red-700"
             : "bg-indigo-600 hover:bg-indigo-700"
-        }`}
+          }`}
       >
         {buttonLabel}
       </button>
 
       {recording && (
-  <div className="mt-6">
-    <p className="mb-3 text-sm font-medium text-slate-700">
-      Listen to your recording:
-    </p>
+        <div className="mt-6">
+          <p className="mb-3 text-sm font-medium text-slate-700">
+            Listen to your recording:
+          </p>
 
-    <audio
-      controls
-      src={recording.url}
-      className="mx-auto w-full max-w-md"
-    />
+          <audio
+            controls
+            src={recording.url}
+            className="mx-auto w-full max-w-md"
+          />
 
-    <button
-      type="button"
-      onClick={deleteRecording}
-      className="mt-4 text-sm font-semibold text-red-600 underline decoration-red-200 underline-offset-4 hover:text-red-700"
-    >
-      Delete recording
-    </button>
-  </div>
-)}
+          {submittedFeedbackId ? (
+            <div
+              role="status"
+              className="mx-auto mt-5 max-w-md rounded-xl bg-emerald-50 px-4 py-4 text-emerald-800"
+            >
+              <p className="font-semibold">Feedback received successfully.</p>
+              <p className="mt-1 break-all text-xs">
+                Reference: {submittedFeedbackId}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={submitRecording}
+                disabled={isSubmitting}
+                className="rounded-full bg-emerald-600 px-6 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? "Submitting…" : "Submit feedback"}
+              </button>
+
+              <button
+                type="button"
+                onClick={deleteRecording}
+                disabled={isSubmitting}
+                className="text-sm font-semibold text-red-600 underline decoration-red-200 underline-offset-4 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Delete recording
+              </button>
+            </div>
+          )}
+
+        </div>
+      )}
       {errorMessage && (
         <p
           role="alert"
