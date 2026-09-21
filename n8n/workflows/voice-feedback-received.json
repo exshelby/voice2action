@@ -1,0 +1,82 @@
+{
+  "name": "Voice Feedback Received",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "feedback-received",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2baa87b2-21c9-4fac-ae49-fb372acaa430",
+      "name": "Webhook",
+      "webhookId": "ac78cb73-5a0e-4942-96fa-792d01e16043"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6ee4778d-85e7-4941-9c36-908bffab1ec9",
+              "name": "feedbackId",
+              "value": "={{ $json.body.feedbackId }}",
+              "type": "string"
+            },
+            {
+              "id": "103dd97e-451b-4537-85a8-084d85ca97e2",
+              "name": "status",
+              "value": "={{ $json.body.status }}",
+              "type": "string"
+            },
+            {
+              "id": "85d07493-fac1-49d1-a696-4fcd6b8f4ffa",
+              "name": "webhookReceivedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "3b4bb81c-7fbc-4a4b-8d4f-0f53a4331ffa",
+      "name": "Edit Fields"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a231c0a0-996b-48f6-b15c-4f6eae2ca3f0",
+  "meta": {
+    "instanceId": "1403361c5b6567035298308a5bd0b1b9f9533399a1405cf10089e7efe2d7de5e"
+  },
+  "nodeGroups": [],
+  "id": "XMYxQuV0TvzcNrll",
+  "tags": []
+}
