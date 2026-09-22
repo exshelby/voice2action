@@ -87,13 +87,28 @@ flowchart TD
     A[Stored audio] --> B[Speech-to-text]
     B --> C[Original transcript]
     C --> D[Structured AI classification]
-    D --> E[Ticket creation]
-    E --> F[Rule-based team assignment]
-    F --> G[Notification]
-    G --> H[Human investigation]
-    H --> I[Resolution]
-    I --> J[Analytics and trend detection]
+    D --> E[Human review and correction]
+    E --> F[Ticket creation]
+    F --> G[Rule-based team assignment]
+    G --> H[Notification]
+    H --> I[Human investigation]
+    I --> J[Resolution]
+    J --> K[Analytics and trend detection]
 ```
+
+## Phase 2 local transcription slice
+
+The upload API and n8n webhook still handle receipt. After n8n accepts the event, the upload API queues transcription on that feedback row. A separate worker polls PostgreSQL for queued `RECEIVED` feedback, reads its audio file from `storage/audio`, runs a local Faster-Whisper model on the CPU, and writes the original transcript and completion time to the same feedback row. Older Phase 1 recordings are not queued automatically. The worker records a failure reason and marks the row `FAILED` if transcription fails. It does not send the recording to a hosted transcription API. The model files download once into ignored `storage/models`; after that, inference is local.
+
+For this slice, `PROCESSING` means transcription has started and `PROCESSED` means a transcript was saved. Later classification and ticket statuses may need a more detailed state model.
+
+## Phase 2 local classification slice
+
+A separate worker polls for `PROCESSED` feedback with a transcript and no category, claims one row, and sends the transcript to a local Python classifier over stdin. The classifier builds a small TF-IDF model from synthetic examples and returns a category, extractive short description, match score, review flag, and model version. It makes no network request. The worker validates that result and saves it to the same feedback row without changing the original transcript or audio. A low or ambiguous match is `OTHER` and needs review. A classification failure is recorded separately from transcription failure, so the transcript remains available. A lease lets another worker recover a claim after a crash. This is a limited English-only first pass; ticket creation and team routing remain future work.
+
+## Phase 2 local human-review slice
+
+A local-only interactive command loads one feedback record by ID and shows the original model output. The operator can correct the wording, choose a category, edit the short description, and must explicitly confirm before saving. Reviewed fields and review time are separate from the original transcript and model classification. An integer review revision prevents one review session from silently overwriting a concurrent change. All feedback still requires human review before a future ticket is created, even if the classifier's automated review flag is false. No public review API or ticket creation is added in this slice.
 
 ## Design rules
 

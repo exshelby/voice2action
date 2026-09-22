@@ -147,6 +147,43 @@ export async function POST(request: Request) {
       );
     }
 
+    try {
+      await prisma.feedback.update({
+        where: {
+          id: feedback.id,
+        },
+        data: {
+          transcriptionRequestedAt: new Date(),
+        },
+      });
+    } catch (queueError) {
+      console.error("Feedback could not be queued for transcription:", queueError);
+
+      await prisma.feedback
+        .update({
+          where: {
+            id: feedback.id,
+          },
+          data: {
+            status: "FAILED",
+            transcriptionError: "Could not queue local transcription.",
+          },
+        })
+        .catch((statusError) => {
+          console.error("Feedback status could not be updated:", statusError);
+        });
+
+      return Response.json(
+        {
+          error: "Your recording was saved, but transcription could not be queued.",
+          feedbackId: feedback.id,
+        },
+        {
+          status: 502,
+        },
+      );
+    }
+
     return Response.json(
       {
         feedbackId: feedback.id,

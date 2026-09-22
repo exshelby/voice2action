@@ -42,6 +42,9 @@ yarn-error.log*
 next-env.d.ts
 
 /generated/prisma
+/.venv/
+__pycache__/
+*.py[cod]
 
 # Local AI assistant support files
 /.agents/

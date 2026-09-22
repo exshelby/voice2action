@@ -17,14 +17,31 @@ enum FeedbackStatus {
 }
 
 model Feedback {
-  id             String         @id @default(uuid()) @db.Uuid
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
-  audioObjectKey String         @map("audio_object_key")
-  mimeType       String         @map("mime_type")
-  fileSizeBytes  Int            @map("file_size_bytes")
-  durationMs     Int?           @map("duration_ms")
-  status         FeedbackStatus @default(RECEIVED)
+  id                        String         @id @default(uuid()) @db.Uuid
+  createdAt                 DateTime       @default(now()) @map("created_at")
+  updatedAt                 DateTime       @updatedAt @map("updated_at")
+  audioObjectKey            String         @map("audio_object_key")
+  mimeType                  String         @map("mime_type")
+  fileSizeBytes             Int            @map("file_size_bytes")
+  durationMs                Int?           @map("duration_ms")
+  transcriptionRequestedAt  DateTime?      @map("transcription_requested_at")
+  originalTranscript        String?        @map("original_transcript") @db.Text
+  transcribedAt             DateTime?      @map("transcribed_at")
+  transcriptionError        String?        @map("transcription_error") @db.Text
+  classificationStartedAt   DateTime?      @map("classification_started_at")
+  classificationCategory    String?        @map("classification_category")
+  classificationSummary     String?        @map("classification_summary") @db.Text
+  classificationScore       Float?         @map("classification_score")
+  classificationNeedsReview Boolean?       @map("classification_needs_review")
+  classificationModel       String?        @map("classification_model")
+  classifiedAt              DateTime?      @map("classified_at")
+  classificationError       String?        @map("classification_error") @db.Text
+  reviewedTranscript        String?        @map("reviewed_transcript") @db.Text
+  reviewedCategory          String?        @map("reviewed_category")
+  reviewedSummary           String?        @map("reviewed_summary") @db.Text
+  reviewedAt                DateTime?      @map("reviewed_at")
+  reviewRevision            Int            @default(0) @map("review_revision")
+  status                    FeedbackStatus @default(RECEIVED)
 
   @@index([status])
   @@index([createdAt])

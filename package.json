@@ -6,7 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "transcribe:once": "node scripts/transcribe-feedback.mjs --once",
+    "transcribe:watch": "node scripts/transcribe-feedback.mjs --watch",
+    "transcribe:show": "node scripts/show-transcript.mjs",
+    "classify:once": "node scripts/classify-feedback.mjs --once",
+    "classify:watch": "node scripts/classify-feedback.mjs --watch",
+    "review:feedback": "node scripts/review-feedback.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

@@ -57,6 +57,18 @@ The following features will be added later:
 - Recurring-issue detection.
 - WhatsApp integration.
 
+## Phase 2: first slice — transcription
+
+The next milestone is to turn a submitted voice recording into text while retaining the original audio and original transcript for review. A successful run links the transcript to the same feedback ID, records when transcription finished, and makes failures visible without deleting the customer's recording. Transcription runs with a local CPU model; no customer audio is sent to a hosted speech-to-text API. Classification, tickets, and routing follow after this transcription path works end to end.
+
+## Phase 2: second slice — local categorization
+
+After transcription, save a first-pass issue category and a short description linked to the same feedback ID. Preserve the customer's original words, mark ambiguous cases for human review, and keep classification failures separate from transcription failures. The initial English-only classifier runs entirely locally and is trained on synthetic examples. Its short description is extractive, not generative. Ticket creation and routing are not part of this slice.
+
+## Phase 2: third slice — human correction
+
+Before creating a ticket, a local operator reviews the transcript, category, and short description. The operator can correct the words and category while the original model output remains available for comparison. The reviewed values are saved separately, with a review timestamp. Automated confidence does not waive human review. This slice does not expose recordings or transcripts through a public operations page.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:
