@@ -133,6 +133,10 @@ The browser operations workspace requires a locally provisioned operator account
 
 Each local operator account has one of three ordered roles. Operators can review feedback, create tickets, record work, advance ticket status, and confirm notification delivery. Managers inherit those capabilities and can also change ticket priority, reassign ownership, and view operations analytics. Administrators inherit all manager capabilities and represent the trusted local account-provisioning tier. Every protected Server Action checks its minimum role independently; conditional navigation and hidden controls improve usability but do not grant or enforce permission. Existing accounts are promoted to Administrator when the migration is first applied, while newly provisioned accounts default to Operator unless an explicit role is supplied. This local hierarchy does not add public registration, remote administration, MFA, or production deployment hardening.
 
+## Phase 2: twentieth slice — administrator account management
+
+An Administrator can manage local operator accounts from a localhost-only browser page. Creation requires an explicit confirmation and initially permits only Operator or Manager access; promotion to Administrator is a separate confirmed action. Administrators can change another account's role or active status and revoke its sessions. The server rechecks the acting account's current Administrator role inside the same database transaction that performs each change. Row locks and policy checks prevent self-demotion, self-deactivation, self-session revocation, and removal of the final active Administrator. Each browser account change appends an attributed before-and-after event for local audit. This slice does not add password reset, deletion, public registration, remote administration, MFA, or production identity infrastructure.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

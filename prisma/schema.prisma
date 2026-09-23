@@ -76,6 +76,14 @@ enum OperatorRole {
   @@map("operator_role")
 }
 
+enum OperatorAccountEventType {
+  CREATED
+  ACCOUNT_UPDATED
+  SESSIONS_REVOKED
+
+  @@map("operator_account_event_type")
+}
+
 model Feedback {
   id                        String         @id @default(uuid()) @db.Uuid
   createdAt                 DateTime       @default(now()) @map("created_at")
@@ -225,26 +233,46 @@ model Notification {
 }
 
 model Operator {
-  id                     String                @id @default(uuid()) @db.Uuid
-  username               String                @unique
-  displayName            String                @map("display_name")
-  passwordHash           String                @map("password_hash")
-  role                   OperatorRole          @default(OPERATOR)
-  active                 Boolean               @default(true)
-  failedLoginCount       Int                   @default(0) @map("failed_login_count")
-  lockedUntil            DateTime?             @map("locked_until")
-  createdAt              DateTime              @default(now()) @map("created_at")
-  updatedAt              DateTime              @updatedAt @map("updated_at")
-  assignedTickets        Ticket[]              @relation("TicketAssigner")
-  createdTickets         Ticket[]              @relation("TicketCreator")
-  deliveredNotifications Notification[]        @relation("NotificationDeliverer")
+  id                     String                 @id @default(uuid()) @db.Uuid
+  username               String                 @unique
+  displayName            String                 @map("display_name")
+  passwordHash           String                 @map("password_hash")
+  role                   OperatorRole           @default(OPERATOR)
+  active                 Boolean                @default(true)
+  failedLoginCount       Int                    @default(0) @map("failed_login_count")
+  lockedUntil            DateTime?              @map("locked_until")
+  createdAt              DateTime               @default(now()) @map("created_at")
+  updatedAt              DateTime               @updatedAt @map("updated_at")
+  assignedTickets        Ticket[]               @relation("TicketAssigner")
+  accountEventsAuthored  OperatorAccountEvent[] @relation("OperatorAccountEventActor")
+  accountEventsTargeted  OperatorAccountEvent[] @relation("OperatorAccountEventTarget")
+  createdTickets         Ticket[]               @relation("TicketCreator")
+  deliveredNotifications Notification[]         @relation("NotificationDeliverer")
   priorityEvents         TicketPriorityEvent[]
-  reviewedFeedback       Feedback[]            @relation("FeedbackReviewer")
+  reviewedFeedback       Feedback[]             @relation("FeedbackReviewer")
   sessions               OperatorSession[]
   statusEvents           TicketStatusEvent[]
   worklogs               TicketWorklog[]
 
   @@map("operator")
+}
+
+model OperatorAccountEvent {
+  id               BigInt                   @id @default(autoincrement())
+  actorOperatorId  String                   @map("actor_operator_id") @db.Uuid
+  targetOperatorId String                   @map("target_operator_id") @db.Uuid
+  eventType        OperatorAccountEventType @map("event_type")
+  beforeRole       OperatorRole?            @map("before_role")
+  afterRole        OperatorRole?            @map("after_role")
+  beforeActive     Boolean?                 @map("before_active")
+  afterActive      Boolean?                 @map("after_active")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  actor            Operator                 @relation("OperatorAccountEventActor", fields: [actorOperatorId], references: [id], onDelete: Restrict)
+  target           Operator                 @relation("OperatorAccountEventTarget", fields: [targetOperatorId], references: [id], onDelete: Restrict)
+
+  @@index([targetOperatorId, createdAt])
+  @@index([actorOperatorId, createdAt])
+  @@map("operator_account_event")
 }
 
 model OperatorSession {

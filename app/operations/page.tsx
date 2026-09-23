@@ -143,8 +143,9 @@ export default async function OperationsPage({
   const operator = await requireOperationsOperator();
 
   const rawSearchParams = await searchParams;
-  const accessDenied = firstSearchValue(rawSearchParams.access) === "denied";
+  const accessRequirement = firstSearchValue(rawSearchParams.access);
   const canViewAnalytics = hasMinimumOperatorRole(operator.role, OperatorRole.MANAGER);
+  const canManageOperators = hasMinimumOperatorRole(operator.role, OperatorRole.ADMIN);
   const query = firstSearchValue(rawSearchParams.q).trim().slice(0, 100);
   const requestedStatus = firstSearchValue(rawSearchParams.status);
   const requestedTeam = firstSearchValue(rawSearchParams.team);
@@ -277,6 +278,14 @@ export default async function OperationsPage({
                 View analytics
               </Link>
             ) : null}
+            {canManageOperators ? (
+              <Link
+                href="/operations/operators"
+                className="rounded-xl border border-violet-400/40 bg-violet-400/10 px-4 py-2.5 text-sm font-semibold text-violet-100 transition hover:border-violet-300 hover:bg-violet-400/20"
+              >
+                Manage operators
+              </Link>
+            ) : null}
             <Link
               href="/feedback"
               className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm font-semibold transition hover:border-indigo-400 hover:bg-slate-700"
@@ -307,9 +316,11 @@ export default async function OperationsPage({
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {accessDenied ? (
+        {accessRequirement ? (
           <div role="alert" className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-900">
-            Manager permission is required to view operations analytics.
+            {accessRequirement === "administrator"
+              ? "Administrator permission is required to manage operator accounts."
+              : "Manager permission is required to view operations analytics."}
           </div>
         ) : null}
         <section aria-label="Ticket summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
