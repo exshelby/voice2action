@@ -92,12 +92,15 @@ model Feedback {
   reviewedCategory          String?        @map("reviewed_category")
   reviewedSummary           String?        @map("reviewed_summary") @db.Text
   reviewedAt                DateTime?      @map("reviewed_at")
+  reviewedById              String?        @map("reviewed_by_id") @db.Uuid
   reviewRevision            Int            @default(0) @map("review_revision")
   status                    FeedbackStatus @default(RECEIVED)
+  reviewedBy                Operator?      @relation("FeedbackReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
   ticket                    Ticket?
 
   @@index([status])
   @@index([createdAt])
+  @@index([reviewedById])
   @@map("feedback")
 }
 
@@ -118,8 +121,12 @@ model Ticket {
   assignedTeam          TicketTeam?           @map("assigned_team")
   assignmentRuleVersion Int?                  @map("assignment_rule_version")
   assignedAt            DateTime?             @map("assigned_at")
+  createdById           String?               @map("created_by_id") @db.Uuid
+  assignedById          String?               @map("assigned_by_id") @db.Uuid
   createdAt             DateTime              @default(now()) @map("created_at")
   updatedAt             DateTime              @updatedAt @map("updated_at")
+  createdBy             Operator?             @relation("TicketCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedBy            Operator?             @relation("TicketAssigner", fields: [assignedById], references: [id], onDelete: Restrict)
   feedback              Feedback              @relation(fields: [feedbackId], references: [id], onDelete: Restrict)
   notifications         Notification[]
   priorityEvents        TicketPriorityEvent[]
@@ -131,6 +138,8 @@ model Ticket {
   @@index([responseDueAt])
   @@index([resolutionDueAt])
   @@index([assignedTeam])
+  @@index([createdById])
+  @@index([assignedById])
   @@index([createdAt])
   @@map("ticket")
 }
@@ -140,10 +149,13 @@ model TicketPriorityEvent {
   ticketId     String          @map("ticket_id") @db.Uuid
   fromPriority TicketPriority? @map("from_priority")
   toPriority   TicketPriority  @map("to_priority")
+  operatorId   String?         @map("operator_id") @db.Uuid
   createdAt    DateTime        @default(now()) @map("created_at")
+  operator     Operator?       @relation(fields: [operatorId], references: [id], onDelete: Restrict)
   ticket       Ticket          @relation(fields: [ticketId], references: [id], onDelete: Restrict)
 
   @@index([ticketId, createdAt])
+  @@index([operatorId])
   @@map("ticket_priority_event")
 }
 
@@ -152,22 +164,28 @@ model TicketStatusEvent {
   ticketId   String        @map("ticket_id") @db.Uuid
   fromStatus TicketStatus? @map("from_status")
   toStatus   TicketStatus  @map("to_status")
+  operatorId String?       @map("operator_id") @db.Uuid
   createdAt  DateTime      @default(now()) @map("created_at")
+  operator   Operator?     @relation(fields: [operatorId], references: [id], onDelete: Restrict)
   ticket     Ticket        @relation(fields: [ticketId], references: [id], onDelete: Restrict)
 
   @@index([ticketId, createdAt])
+  @@index([operatorId])
   @@map("ticket_status_event")
 }
 
 model TicketWorklog {
-  id        Int               @id @default(autoincrement())
-  ticketId  String            @map("ticket_id") @db.Uuid
-  type      TicketWorklogType
-  body      String            @db.Text
-  createdAt DateTime          @default(now()) @map("created_at")
-  ticket    Ticket            @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  id         Int               @id @default(autoincrement())
+  ticketId   String            @map("ticket_id") @db.Uuid
+  type       TicketWorklogType
+  body       String            @db.Text
+  operatorId String?           @map("operator_id") @db.Uuid
+  createdAt  DateTime          @default(now()) @map("created_at")
+  operator   Operator?         @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  ticket     Ticket            @relation(fields: [ticketId], references: [id], onDelete: Restrict)
 
   @@index([ticketId, createdAt])
+  @@index([operatorId])
   @@map("ticket_worklog")
 }
 
@@ -185,12 +203,50 @@ model Notification {
   deliveryLeaseExpiresAt DateTime?          @map("delivery_lease_expires_at")
   lastError              String?            @map("last_error") @db.Text
   sentAt                 DateTime?          @map("sent_at")
+  deliveredById          String?            @map("delivered_by_id") @db.Uuid
   createdAt              DateTime           @default(now()) @map("created_at")
   updatedAt              DateTime           @updatedAt @map("updated_at")
+  deliveredBy            Operator?          @relation("NotificationDeliverer", fields: [deliveredById], references: [id], onDelete: Restrict)
   ticket                 Ticket             @relation(fields: [ticketId], references: [id], onDelete: Restrict)
 
   @@unique([ticketId, eventType])
   @@index([status, nextAttemptAt, createdAt])
   @@index([team, status])
+  @@index([deliveredById])
   @@map("notification")
+}
+
+model Operator {
+  id                     String                @id @default(uuid()) @db.Uuid
+  username               String                @unique
+  displayName            String                @map("display_name")
+  passwordHash           String                @map("password_hash")
+  active                 Boolean               @default(true)
+  failedLoginCount       Int                   @default(0) @map("failed_login_count")
+  lockedUntil            DateTime?             @map("locked_until")
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+  assignedTickets        Ticket[]              @relation("TicketAssigner")
+  createdTickets         Ticket[]              @relation("TicketCreator")
+  deliveredNotifications Notification[]        @relation("NotificationDeliverer")
+  priorityEvents         TicketPriorityEvent[]
+  reviewedFeedback       Feedback[]            @relation("FeedbackReviewer")
+  sessions               OperatorSession[]
+  statusEvents           TicketStatusEvent[]
+  worklogs               TicketWorklog[]
+
+  @@map("operator")
+}
+
+model OperatorSession {
+  id         String   @id @default(uuid()) @db.Uuid
+  operatorId String   @map("operator_id") @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  operator   Operator @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@index([operatorId, expiresAt])
+  @@index([expiresAt])
+  @@map("operator_session")
 }

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 
-import { requireLocalOperationsRequest } from "../../security";
+import { requireOperationsOperator } from "../../security";
 import { createTicketFromReviewDashboard, saveFeedbackReviewFromDashboard } from "../actions";
 import { TEAM_LABELS, teamForReviewCategory } from "../ticket-routing";
 
@@ -43,7 +43,7 @@ export default async function ReviewFeedbackPage({
 }: {
   params: Promise<{ feedbackId: string }>;
 }) {
-  await requireLocalOperationsRequest();
+  await requireOperationsOperator();
 
   const { feedbackId } = await params;
 
@@ -68,6 +68,7 @@ export default async function ReviewFeedbackPage({
       reviewedCategory: true,
       reviewedSummary: true,
       reviewedAt: true,
+      reviewedBy: { select: { displayName: true, username: true } },
       reviewRevision: true,
       ticket: {
         select: { ticketNumber: true },
@@ -297,6 +298,14 @@ export default async function ReviewFeedbackPage({
               <Detail
                 label="Last reviewed"
                 value={feedback.reviewedAt ? dateFormatter.format(feedback.reviewedAt) : "Not reviewed yet"}
+              />
+              <Detail
+                label="Reviewed by"
+                value={!feedback.reviewedAt
+                  ? "Not reviewed yet"
+                  : feedback.reviewedBy
+                    ? `${feedback.reviewedBy.displayName} (@${feedback.reviewedBy.username})`
+                    : "System / pre-auth"}
               />
               <Detail label="Review revision" value={String(feedback.reviewRevision)} />
             </dl>

@@ -9,7 +9,7 @@ import {
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
-import { requireLocalOperationsRequest } from "../security";
+import { requireOperationsOperator } from "../security";
 
 export const metadata = {
   title: "Operations analytics | Voice2Action",
@@ -89,7 +89,7 @@ function ticketAgeDays(createdAt: Date, now: Date) {
 }
 
 export default async function OperationsAnalyticsPage() {
-  await requireLocalOperationsRequest();
+  await requireOperationsOperator();
 
   const tickets = await prisma.ticket.findMany({
     select: {

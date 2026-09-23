@@ -125,6 +125,10 @@ Every ticket has a triage priority and deterministic response and resolution dea
 
 An explicitly configured local worker can deliver queued team notifications to one HTTP or HTTPS webhook. The webhook receives a versioned JSON payload, a stable event ID, and an idempotency header so the receiving system can suppress duplicates. Workers claim one eligible row with a five-minute lease and `SKIP LOCKED`, preventing simultaneous workers from sending the same claim. Successful delivery records `SENT`; temporary network, throttling, and server failures return the alert to `PENDING` with bounded exponential backoff; invalid requests and exhausted retries become `FAILED`. Expired leases are recovered automatically. The dashboard surfaces pending, sending, retrying, and failed alerts. Delivery remains disabled until a webhook URL is deliberately configured, and this slice does not provision an email, chat, or n8n destination.
 
+## Phase 2: eighteenth slice — local operator authentication and attribution
+
+The browser operations workspace requires a locally provisioned operator account. There is no public registration route. Passwords use a memory-hard scrypt hash, successful sign-in issues an opaque database-backed session, and repeated failures temporarily lock the account. Every operations page and Server Action verifies both the localhost boundary and the current session. Reviews, browser-created tickets, manual assignment, work-log entries, priority and status transitions, and manual notification confirmation record the responsible operator without rewriting older history. Pre-authentication and terminal automation records remain explicitly identifiable as system activity. Sessions expire after eight hours and a new login revokes that operator's existing sessions. This slice remains a development safeguard rather than production identity: roles, MFA, recovery, TLS, and deployment-grade proxy hardening are future work.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

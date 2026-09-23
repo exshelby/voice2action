@@ -166,6 +166,12 @@ The ticket table stores a priority, response deadline, resolution deadline, and 
 
 The notification table adds a next-attempt timestamp, UUID claim token, and lease expiry. Before claiming work, the local worker recovers expired `SENDING` leases; it then atomically selects one due `PENDING` notification with `FOR UPDATE SKIP LOCKED`, increments its attempt count, and creates a five-minute lease. The transport posts a versioned JSON envelope to the explicitly configured webhook with a stable `voice2action-notification-{id}` event and idempotency key. Success is conditionally saved only by the current claim token. Network errors, HTTP 408/429, and 5xx responses use bounded exponential backoff; non-retryable 4xx responses and exhausted attempts become `FAILED`. All completion and failure writes clear the lease, and dashboard queries expose non-delivered states without giving browser code database or webhook credentials.
 
+## Phase 2 local-operator-identity slice
+
+Operators are provisioned only through an interactive local command. The command validates a normalized username, hashes the hidden password with scrypt and a random salt, and inserts the account directly into PostgreSQL. The sign-in Server Action returns one generic failure response, verifies a dummy hash for unknown users, and locks an active account for 15 minutes after five consecutive failures. A successful login stores only the SHA-256 hash of a random session token in `operator_session`; the raw token is an HTTP-only, SameSite Strict cookie scoped to `/operations`. Sessions expire after eight hours, and successful login deletes that operator's prior sessions.
+
+The operations layout keeps the login route reachable, while every protected page and every mutating Server Action independently requires a current active operator. PostgreSQL stores nullable operator references on reviewed feedback, ticket creation and assignment, work logs, priority and status events, and manually delivered notifications. Browser status and priority transactions set a transaction-local operator ID that the existing database triggers copy into immutable history. Null remains meaningful for legacy rows and terminal or worker activity. This layer still depends on the localhost-only request guard and plain local HTTP; it is not a production authentication boundary.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

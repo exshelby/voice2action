@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 
-import { requireLocalOperationsRequest } from "../security";
+import { requireOperationsOperator, withOperatorContext } from "../security";
 import { ASSIGNMENT_RULE_VERSION, routingRulesJson } from "./ticket-routing";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,7 +29,7 @@ function cleanText(value: FormDataEntryValue | null) {
 }
 
 export async function saveFeedbackReviewFromDashboard(formData: FormData) {
-  await requireLocalOperationsRequest();
+  const operator = await requireOperationsOperator();
 
   const feedbackId = String(formData.get("feedbackId") ?? "");
   const transcript = cleanText(formData.get("transcript"));
@@ -69,6 +69,7 @@ export async function saveFeedbackReviewFromDashboard(formData: FormData) {
       reviewedCategory: category,
       reviewedSummary: summary,
       reviewedAt: new Date(),
+      reviewedById: operator.id,
       reviewRevision: { increment: 1 },
     },
   });
@@ -86,7 +87,7 @@ export async function saveFeedbackReviewFromDashboard(formData: FormData) {
 }
 
 export async function createTicketFromReviewDashboard(formData: FormData) {
-  await requireLocalOperationsRequest();
+  const operator = await requireOperationsOperator();
 
   const feedbackId = String(formData.get("feedbackId") ?? "");
   const expectedRevision = Number(formData.get("expectedRevision"));
@@ -104,27 +105,30 @@ export async function createTicketFromReviewDashboard(formData: FormData) {
 
   const ticketId = randomUUID();
   const rules = routingRulesJson();
-  const created = await prisma.$queryRaw<Array<{ ticket_number: number }>>`
-    INSERT INTO ticket (
-      id, feedback_id, title, description, category,
-      source_review_revision, source_reviewed_at, status,
-      assigned_team, assignment_rule_version, assigned_at, updated_at
-    )
-    SELECT ${ticketId}::uuid, id, reviewed_summary, reviewed_transcript, reviewed_category,
-           review_revision, reviewed_at, 'OPEN',
-           jsonb_extract_path_text(${rules}::jsonb, reviewed_category)::ticket_team,
-           ${ASSIGNMENT_RULE_VERSION}, NOW(), NOW()
-    FROM feedback
-    WHERE id = ${feedbackId}::uuid
-      AND review_revision = ${expectedRevision}
-      AND reviewed_at IS NOT NULL
-      AND reviewed_transcript IS NOT NULL
-      AND reviewed_category IS NOT NULL
-      AND reviewed_summary IS NOT NULL
-      AND jsonb_exists(${rules}::jsonb, reviewed_category)
-    ON CONFLICT (feedback_id) DO NOTHING
-    RETURNING ticket_number
-  `;
+  const created = await withOperatorContext(operator.id, (transaction) =>
+    transaction.$queryRaw<Array<{ ticket_number: number }>>`
+      INSERT INTO ticket (
+        id, feedback_id, title, description, category,
+        source_review_revision, source_reviewed_at, status,
+        assigned_team, assignment_rule_version, assigned_at,
+        created_by_id, assigned_by_id, updated_at
+      )
+      SELECT ${ticketId}::uuid, id, reviewed_summary, reviewed_transcript, reviewed_category,
+             review_revision, reviewed_at, 'OPEN',
+             jsonb_extract_path_text(${rules}::jsonb, reviewed_category)::ticket_team,
+             ${ASSIGNMENT_RULE_VERSION}, NOW(),
+             ${operator.id}::uuid, ${operator.id}::uuid, NOW()
+      FROM feedback
+      WHERE id = ${feedbackId}::uuid
+        AND review_revision = ${expectedRevision}
+        AND reviewed_at IS NOT NULL
+        AND reviewed_transcript IS NOT NULL
+        AND reviewed_category IS NOT NULL
+        AND reviewed_summary IS NOT NULL
+        AND jsonb_exists(${rules}::jsonb, reviewed_category)
+      ON CONFLICT (feedback_id) DO NOTHING
+      RETURNING ticket_number
+    `);
 
   let ticketNumber: number | undefined = created[0]?.ticket_number;
 

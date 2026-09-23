@@ -22,7 +22,7 @@ import {
   markNotificationDeliveredFromDashboard,
   reassignTicketFromDashboard,
 } from "../../actions";
-import { requireLocalOperationsRequest } from "../../security";
+import { requireOperationsOperator } from "../../security";
 
 export const metadata = {
   title: "Ticket details | Voice2Action",
@@ -128,6 +128,10 @@ function notificationReference(notificationId: number) {
   return `NTF-${String(notificationId).padStart(6, "0")}`;
 }
 
+function operatorLabel(operator: { displayName: string; username: string } | null) {
+  return operator ? `${operator.displayName} (@${operator.username})` : "System / pre-auth";
+}
+
 function nextStatusLabel(status: TicketStatusValue) {
   const index = STATUS_STEPS.indexOf(status);
   const next = STATUS_STEPS[index + 1];
@@ -139,7 +143,7 @@ export default async function TicketDetailPage({
 }: {
   params: Promise<{ ticketNumber: string }>;
 }) {
-  await requireLocalOperationsRequest();
+  await requireOperationsOperator();
 
   const { ticketNumber: ticketNumberParam } = await params;
 
@@ -156,6 +160,8 @@ export default async function TicketDetailPage({
   const ticket = await prisma.ticket.findUnique({
     where: { ticketNumber },
     include: {
+      createdBy: { select: { displayName: true, username: true } },
+      assignedBy: { select: { displayName: true, username: true } },
       feedback: {
         select: {
           id: true,
@@ -167,19 +173,24 @@ export default async function TicketDetailPage({
           reviewedCategory: true,
           reviewedSummary: true,
           reviewedAt: true,
+          reviewedBy: { select: { displayName: true, username: true } },
           reviewRevision: true,
         },
       },
       notifications: {
+        include: { deliveredBy: { select: { displayName: true, username: true } } },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       },
       statusEvents: {
+        include: { operator: { select: { displayName: true, username: true } } },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       },
       priorityEvents: {
+        include: { operator: { select: { displayName: true, username: true } } },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       },
       worklogs: {
+        include: { operator: { select: { displayName: true, username: true } } },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       },
     },
@@ -265,6 +276,7 @@ export default async function TicketDetailPage({
                       </time>
                     </div>
                     <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{entry.body}</p>
+                    <p className="mt-3 text-xs font-semibold text-slate-500">By {operatorLabel(entry.operator)}</p>
                   </article>
                 ))
               )}
@@ -338,6 +350,7 @@ export default async function TicketDetailPage({
               />
               <Detail label="Reviewed" value={dateFormatter.format(ticket.sourceReviewedAt)} />
               <Detail label="Review revision" value={String(ticket.sourceReviewRevision)} />
+              <Detail label="Ticket created by" value={operatorLabel(ticket.createdBy)} />
               <Detail
                 label="Assigned"
                 value={ticket.assignedAt ? dateFormatter.format(ticket.assignedAt) : "Not assigned"}
@@ -346,6 +359,7 @@ export default async function TicketDetailPage({
                 label="Assignment source"
                 value={ticket.assignmentRuleVersion ? `Rule set v${ticket.assignmentRuleVersion}` : "Manual assignment"}
               />
+              <Detail label="Assigned by" value={operatorLabel(ticket.assignedBy)} />
             </dl>
           </section>
 
@@ -372,6 +386,7 @@ export default async function TicketDetailPage({
                   label="Review saved"
                   value={ticket.feedback.reviewedAt ? dateFormatter.format(ticket.feedback.reviewedAt) : "Not available"}
                 />
+                <Detail label="Reviewed by" value={operatorLabel(ticket.feedback.reviewedBy)} />
               </div>
               <TextBlock label="Model summary" value={ticket.feedback.classificationSummary} />
               <TextBlock label="Reviewed summary" value={ticket.feedback.reviewedSummary} />
@@ -411,6 +426,9 @@ export default async function TicketDetailPage({
                       <div><dt className="inline">Team: </dt><dd className="inline font-semibold">{TEAM_LABELS[notification.team]}</dd></div>
                       <div><dt className="inline">Attempts: </dt><dd className="inline font-semibold">{notification.attemptCount}</dd></div>
                       <div><dt className="inline">Queued: </dt><dd className="inline font-semibold">{dateFormatter.format(notification.createdAt)}</dd></div>
+                      {notification.status === NotificationStatus.SENT ? (
+                        <div><dt className="inline">Delivered by: </dt><dd className="inline font-semibold">{notification.deliveredBy ? operatorLabel(notification.deliveredBy) : "Webhook worker / pre-auth"}</dd></div>
+                      ) : null}
                       {notification.status === NotificationStatus.PENDING && notification.attemptCount > 0 ? (
                         <div><dt className="inline">Next retry: </dt><dd className="inline font-semibold">{dateFormatter.format(notification.nextAttemptAt)}</dd></div>
                       ) : null}
@@ -508,7 +526,7 @@ export default async function TicketDetailPage({
                         : `History began at ${PRIORITY_LABELS[event.toPriority]}`}
                     </p>
                     <time className="mt-1 block text-[11px] text-slate-500" dateTime={event.createdAt.toISOString()}>
-                      {dateFormatter.format(event.createdAt)}
+                      {dateFormatter.format(event.createdAt)} · {operatorLabel(event.operator)}
                     </time>
                   </li>
                 ))}
@@ -573,7 +591,7 @@ export default async function TicketDetailPage({
                         : `History began at ${STATUS_LABELS[event.toStatus]}`}
                     </p>
                     <time className="mt-1 block text-[11px] text-slate-500" dateTime={event.createdAt.toISOString()}>
-                      {dateFormatter.format(event.createdAt)}
+                      {dateFormatter.format(event.createdAt)} · {operatorLabel(event.operator)}
                     </time>
                   </li>
                 ))}

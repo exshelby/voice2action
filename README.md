@@ -40,9 +40,22 @@ The first milestone is one real voice recording successfully moving from the cus
 
 ## Project status
 
-Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, review-gated local ticket creation, rule-based team assignment, a durable notification outbox with an optional webhook delivery worker, and a local ticket status workflow.
+Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, review-gated local ticket creation, rule-based team assignment, a durable notification outbox with an optional webhook delivery worker, a local ticket status workflow, and authenticated operator attribution.
 
-The local operations dashboard is available at `http://localhost:3000/operations` while `npm run dev` is running. It shows ticket totals, recent tickets, assigned teams, status progress, SLA deadlines, and pending notification messages. Search by ticket reference or wording, or filter the list by status, team, category, priority, and overdue state. Open `/operations/analytics` for lifecycle, priority, team, category, aging, SLA, and conservative 30-day recurring-issue summaries. Open `/operations/reviews` to review transcribed feedback in the browser while preserving the original model output, then explicitly confirm ticket creation from the saved review. Status changes advance one step at a time, require checking a confirmation box, and are recorded automatically in an immutable history. Open a ticket to view its full transcript and review audit trail, append permanent investigation or resolution notes, change its priority or assigned team, or confirm that a pending local notification was delivered. Priority changes recalculate response and resolution deadlines from the original creation time and are recorded in an immutable history. A resolution note is required before an in-progress ticket can move to Resolved. Manual reassignment refreshes the existing assignment notification for the new team. For safety, the dashboard, review inbox, and mutation actions accept localhost requests only; authentication is required before any future public deployment.
+The local operations dashboard is available at `http://localhost:3000/operations` while `npm run dev` is running. It shows ticket totals, recent tickets, assigned teams, status progress, SLA deadlines, and pending notification messages. Search by ticket reference or wording, or filter the list by status, team, category, priority, and overdue state. Open `/operations/analytics` for lifecycle, priority, team, category, aging, SLA, and conservative 30-day recurring-issue summaries. Open `/operations/reviews` to review transcribed feedback in the browser while preserving the original model output, then explicitly confirm ticket creation from the saved review. Status changes advance one step at a time, require checking a confirmation box, and are recorded automatically in an immutable history. Open a ticket to view its full transcript and review audit trail, append permanent investigation or resolution notes, change its priority or assigned team, or confirm that a pending local notification was delivered. Priority changes recalculate response and resolution deadlines from the original creation time and are recorded in an immutable history. A resolution note is required before an in-progress ticket can move to Resolved. Manual reassignment refreshes the existing assignment notification for the new team. New browser actions record the signed-in operator, while historical and terminal-created records remain labeled `System / pre-auth`.
+
+## Local operator sign-in
+
+Apply the latest migration, then create the first local operator from an interactive terminal. The password is hidden while you type and must contain 12 to 200 characters.
+
+```powershell
+npx prisma migrate deploy
+npm run operator:create -- abel "Abel Olaboye"
+```
+
+Start the app with `npm run dev`, then open `http://localhost:3000/operations`. Unauthenticated requests are redirected to `/operations/login`. Passwords are stored with scrypt hashes; browser sessions use random tokens whose SHA-256 hashes are stored in PostgreSQL. A session lasts eight hours, and a new login revokes that operator's earlier sessions. Five consecutive failed attempts lock the account for 15 minutes.
+
+This authentication is deliberately local-only. The cookie is restricted to `/operations`, is HTTP-only and SameSite Strict, but is not marked Secure because the documented development URL uses plain HTTP. The localhost restriction is still enforced. Do not expose this build to the internet: it has no TLS termination, roles, MFA, password recovery, centralized rate limiting, or hardened reverse-proxy trust policy.
 
 ## Local transcription setup (Windows)
 

@@ -15,7 +15,7 @@ import {
 import { prisma } from "@/lib/prisma";
 
 import { advanceTicketFromDashboard } from "./actions";
-import { requireLocalOperationsRequest } from "./security";
+import { requireOperationsOperator } from "./security";
 
 export const metadata = {
   title: "Operations dashboard | Voice2Action",
@@ -138,7 +138,7 @@ export default async function OperationsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireLocalOperationsRequest();
+  await requireOperationsOperator();
 
   const rawSearchParams = await searchParams;
   const query = firstSearchValue(rawSearchParams.q).trim().slice(0, 100);

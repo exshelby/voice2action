@@ -16,7 +16,7 @@ import {
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
-import { requireLocalOperationsRequest } from "./security";
+import { requireOperationsOperator, withOperatorContext } from "./security";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TEAM_VALUES = new Set<TicketTeamValue>(Object.values(TicketTeam));
@@ -44,7 +44,7 @@ function revalidateTicketPages(ticketNumber: number) {
 }
 
 export async function changeTicketPriorityFromDashboard(formData: FormData) {
-  await requireLocalOperationsRequest();
+  const operator = await requireOperationsOperator();
 
   const ticketId = String(formData.get("ticketId") ?? "");
   const priority = String(formData.get("priority") ?? "") as TicketPriorityValue;
@@ -75,10 +75,11 @@ export async function changeTicketPriorityFromDashboard(formData: FormData) {
     return;
   }
 
-  const updated = await prisma.ticket.updateMany({
-    where: { id: ticketId, priority: ticket.priority },
-    data: { priority },
-  });
+  const updated = await withOperatorContext(operator.id, (transaction) =>
+    transaction.ticket.updateMany({
+      where: { id: ticketId, priority: ticket.priority },
+      data: { priority },
+    }));
 
   if (updated.count !== 1) {
     throw new Error("This ticket priority changed while you were updating it. Refresh and try again.");
@@ -101,7 +102,7 @@ function nextStatus(status: TicketStatusValue) {
 }
 
 export async function advanceTicketFromDashboard(formData: FormData) {
-  await requireLocalOperationsRequest();
+  const operator = await requireOperationsOperator();
 
   const ticketId = String(formData.get("ticketId") ?? "");
   const confirmed = formData.get("confirmed") === "yes";
@@ -138,10 +139,11 @@ export async function advanceTicketFromDashboard(formData: FormData) {
     }
   }
 
-  const updated = await prisma.ticket.updateMany({
-    where: { id: ticketId, status: ticket.status },
-    data: { status: next },
-  });
+  const updated = await withOperatorContext(operator.id, (transaction) =>
+    transaction.ticket.updateMany({
+      where: { id: ticketId, status: ticket.status },
+      data: { status: next },
+    }));
 
   if (updated.count !== 1) {
     throw new Error("This ticket changed while you were updating it. Refresh and try again.");
@@ -151,7 +153,7 @@ export async function advanceTicketFromDashboard(formData: FormData) {
 }
 
 export async function addTicketWorklogFromDashboard(formData: FormData) {
-  await requireLocalOperationsRequest();
+  const operator = await requireOperationsOperator();
 
   const ticketId = String(formData.get("ticketId") ?? "");
   const type = String(formData.get("type") ?? "") as TicketWorklogTypeValue;
@@ -184,14 +186,14 @@ export async function addTicketWorklogFromDashboard(formData: FormData) {
   }
 
   await prisma.ticketWorklog.create({
-    data: { ticketId, type, body },
+    data: { ticketId, type, body, operatorId: operator.id },
   });
 
   revalidateTicketPages(ticket.ticketNumber);
 }
 
 export async function reassignTicketFromDashboard(formData: FormData) {
-  await requireLocalOperationsRequest();
+  const operator = await requireOperationsOperator();
 
   const ticketId = String(formData.get("ticketId") ?? "");
   const selectedTeam = String(formData.get("team") ?? "") as TicketTeamValue;
@@ -207,7 +209,7 @@ export async function reassignTicketFromDashboard(formData: FormData) {
     throw new Error("Confirm the team reassignment before continuing.");
   }
 
-  const ticketNumber = await prisma.$transaction(async (transaction) => {
+  const ticketNumber = await withOperatorContext(operator.id, async (transaction) => {
     const ticket = await transaction.ticket.findUnique({
       where: { id: ticketId },
       select: {
@@ -231,6 +233,7 @@ export async function reassignTicketFromDashboard(formData: FormData) {
       data: {
         assignedTeam: selectedTeam,
         assignedAt: new Date(),
+        assignedById: operator.id,
         assignmentRuleVersion: null,
       },
     });
@@ -277,7 +280,7 @@ export async function reassignTicketFromDashboard(formData: FormData) {
 }
 
 export async function markNotificationDeliveredFromDashboard(formData: FormData) {
-  await requireLocalOperationsRequest();
+  const operator = await requireOperationsOperator();
 
   const notificationId = Number(formData.get("notificationId"));
   const confirmed = formData.get("confirmed") === "yes";
@@ -309,6 +312,7 @@ export async function markNotificationDeliveredFromDashboard(formData: FormData)
     data: {
       status: NotificationStatus.SENT,
       sentAt: new Date(),
+      deliveredById: operator.id,
       attemptCount: { increment: 1 },
       deliveryClaimToken: null,
       deliveryLeaseExpiresAt: null,

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
 
-import { requireLocalOperationsRequest } from "../security";
+import { requireOperationsOperator } from "../security";
 
 export const metadata = {
   title: "Human review queue | Voice2Action",
@@ -36,7 +36,7 @@ export default async function ReviewQueuePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireLocalOperationsRequest();
+  await requireOperationsOperator();
 
   const rawSearchParams = await searchParams;
   const reviewSaved = firstSearchValue(rawSearchParams.saved) === "1";
