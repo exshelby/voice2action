@@ -154,6 +154,10 @@ The review detail route previews the saved title, category, assigned team, start
 
 The ticket detail route reads typed work-log entries through the ticket relation and displays them newest first. A localhost-only Server Action validates the ticket identifier, entry type, confirmation, and a 5,000-character body limit before appending a row. The interface exposes no edit or delete action, and closed tickets reject new entries. Advancing an in-progress ticket queries for at least one `RESOLUTION` entry before conditionally updating the status, so resolution has recorded evidence while the existing optimistic concurrency guard remains in place.
 
+## Phase 2 ticket-status-history slice
+
+An `AFTER INSERT OR UPDATE OF status` PostgreSQL trigger appends immutable rows to `ticket_status_event`. New tickets receive a creation event with no prior status, while later entries contain both the previous and new status. Updates that leave status unchanged produce no event. The migration creates one baseline event for each existing ticket at migration time so the interface distinguishes observed state from known transitions. The ticket detail query loads this relation newest first and renders it in the lifecycle panel.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

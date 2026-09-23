@@ -154,6 +154,9 @@ export default async function TicketDetailPage({
       notifications: {
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       },
+      statusEvents: {
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      },
       worklogs: {
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       },
@@ -402,6 +405,29 @@ export default async function TicketDetailPage({
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Lifecycle</p>
             <h2 className="mt-1 text-lg font-bold">Ticket status</h2>
             <StatusTrack status={ticket.status} />
+
+            <div className="mt-5 border-t border-slate-100 pt-5">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-bold text-slate-800">Recorded history</h3>
+                <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700">
+                  {ticket.statusEvents.length}
+                </span>
+              </div>
+              <ol className="mt-3 space-y-3">
+                {ticket.statusEvents.map((event) => (
+                  <li key={event.id} className="border-l-2 border-indigo-200 pl-3">
+                    <p className="text-xs font-semibold text-slate-700">
+                      {event.fromStatus
+                        ? `${STATUS_LABELS[event.fromStatus]} → ${STATUS_LABELS[event.toStatus]}`
+                        : `History began at ${STATUS_LABELS[event.toStatus]}`}
+                    </p>
+                    <time className="mt-1 block text-[11px] text-slate-500" dateTime={event.createdAt.toISOString()}>
+                      {dateFormatter.format(event.createdAt)}
+                    </time>
+                  </li>
+                ))}
+              </ol>
+            </div>
 
             {nextLabel ? (
               <form action={advanceTicketFromDashboard} className="mt-5 space-y-3 border-t border-slate-100 pt-5">

@@ -113,6 +113,10 @@ After inspecting a completed review, a local operator can explicitly confirm cre
 
 A local operator can append investigation and resolution notes to an active ticket from its detail page. Entries are timestamped, typed, and immutable through the interface so the ticket retains a chronological operational record. Closed tickets are read-only. An in-progress ticket cannot move to `RESOLVED` until at least one resolution note exists, and status advancement keeps its existing stale-update protection. Authentication, named operator identities, attachments, editing, and reopening remain future work.
 
+## Phase 2: fifteenth slice — immutable ticket status history
+
+Every ticket status is recorded as an immutable timestamped event, regardless of whether the change comes from the browser, terminal workflow, or future automation. A database trigger records ticket creation and each real status transition while ignoring updates that do not change status. Existing tickets receive a baseline event for the status observed when tracking begins; the system does not invent timestamps for earlier transitions. The ticket detail page presents the recorded history beside the lifecycle controls.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:
