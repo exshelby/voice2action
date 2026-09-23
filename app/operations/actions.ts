@@ -262,6 +262,9 @@ export async function reassignTicketFromDashboard(formData: FormData) {
         message: `${reference} was reassigned to ${teamLabel}. ${ticket.description}`,
         status: NotificationStatus.PENDING,
         attemptCount: 0,
+        nextAttemptAt: new Date(),
+        deliveryClaimToken: null,
+        deliveryLeaseExpiresAt: null,
         lastError: null,
         sentAt: null,
       },
@@ -297,16 +300,18 @@ export async function markNotificationDeliveredFromDashboard(formData: FormData)
   if (!notification) {
     throw new Error("Notification not found.");
   }
-  if (notification.status !== NotificationStatus.PENDING) {
-    throw new Error("Only a pending notification can be marked as delivered.");
+  if (notification.status !== NotificationStatus.PENDING && notification.status !== NotificationStatus.FAILED) {
+    throw new Error("Only a pending or failed notification can be marked as delivered.");
   }
 
   const updated = await prisma.notification.updateMany({
-    where: { id: notificationId, status: NotificationStatus.PENDING },
+    where: { id: notificationId, status: notification.status },
     data: {
       status: NotificationStatus.SENT,
       sentAt: new Date(),
       attemptCount: { increment: 1 },
+      deliveryClaimToken: null,
+      deliveryLeaseExpiresAt: null,
       lastError: null,
     },
   });

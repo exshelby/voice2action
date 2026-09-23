@@ -162,6 +162,10 @@ An `AFTER INSERT OR UPDATE OF status` PostgreSQL trigger appends immutable rows 
 
 The ticket table stores a priority, response deadline, resolution deadline, and optional first-response timestamp. A PostgreSQL `BEFORE INSERT OR UPDATE OF priority, status` trigger applies the fixed SLA policy from the original ticket creation time and records the first transition out of `OPEN`; this keeps terminal, browser, and future automation writes consistent. A second trigger appends each real priority change to `ticket_priority_event`, and the migration adds one normal-priority baseline event for existing tickets without inventing past history. The localhost dashboard validates priority and overdue URL filters, highlights the deadline relevant to the active lifecycle stage, and uses an optimistic Server Action for confirmed priority changes. Analytics reports the priority mix and active tickets whose current response or resolution deadline has passed.
 
+## Phase 2 webhook-notification-delivery slice
+
+The notification table adds a next-attempt timestamp, UUID claim token, and lease expiry. Before claiming work, the local worker recovers expired `SENDING` leases; it then atomically selects one due `PENDING` notification with `FOR UPDATE SKIP LOCKED`, increments its attempt count, and creates a five-minute lease. The transport posts a versioned JSON envelope to the explicitly configured webhook with a stable `voice2action-notification-{id}` event and idempotency key. Success is conditionally saved only by the current claim token. Network errors, HTTP 408/429, and 5xx responses use bounded exponential backoff; non-retryable 4xx responses and exhausted attempts become `FAILED`. All completion and failure writes clear the lease, and dashboard queries expose non-delivered states without giving browser code database or webhook credentials.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

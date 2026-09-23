@@ -40,7 +40,7 @@ The first milestone is one real voice recording successfully moving from the cus
 
 ## Project status
 
-Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, review-gated local ticket creation, rule-based team assignment, a local notification outbox, and a local ticket status workflow. External notification delivery is still future work.
+Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, review-gated local ticket creation, rule-based team assignment, a durable notification outbox with an optional webhook delivery worker, and a local ticket status workflow.
 
 The local operations dashboard is available at `http://localhost:3000/operations` while `npm run dev` is running. It shows ticket totals, recent tickets, assigned teams, status progress, SLA deadlines, and pending notification messages. Search by ticket reference or wording, or filter the list by status, team, category, priority, and overdue state. Open `/operations/analytics` for lifecycle, priority, team, category, aging, SLA, and conservative 30-day recurring-issue summaries. Open `/operations/reviews` to review transcribed feedback in the browser while preserving the original model output, then explicitly confirm ticket creation from the saved review. Status changes advance one step at a time, require checking a confirmation box, and are recorded automatically in an immutable history. Open a ticket to view its full transcript and review audit trail, append permanent investigation or resolution notes, change its priority or assigned team, or confirm that a pending local notification was delivered. Priority changes recalculate response and resolution deadlines from the original creation time and are recorded in an immutable history. A resolution note is required before an in-progress ticket can move to Resolved. Manual reassignment refreshes the existing assignment notification for the new team. For safety, the dashboard, review inbox, and mutation actions accept localhost requests only; authentication is required before any future public deployment.
 
@@ -103,4 +103,16 @@ npm run ticket:update -- TKT-000001
 npm run notification:list
 ```
 
-The create command previews the ticket and requires typing `yes`. New tickets start with status `Open` and are assigned automatically from their reviewed category. Use `ticket:assign` for an older unassigned ticket; it previews the rule-based recommendation and requires confirmation. Delivery issues route to Logistics, product quality to Quality, billing to Finance, customer service to Customer Support, app issues to Technical Support, suggestions and compliments to Customer Experience, and unclear cases to General Support. Team assignment atomically creates one pending notification in a local database outbox. `notification:list` shows up to 100 pending messages without marking them as sent. A future sender can safely deliver these messages through email or chat and update their delivery status. Each confirmed `ticket:update` run advances exactly one step: `Open` → `In Progress` → `Resolved` → `Closed`. This prevents accidentally skipping a stage. Closed tickets cannot advance further. External email or chat delivery remains future work.
+The create command previews the ticket and requires typing `yes`. New tickets start with status `Open` and are assigned automatically from their reviewed category. Use `ticket:assign` for an older unassigned ticket; it previews the rule-based recommendation and requires confirmation. Delivery issues route to Logistics, product quality to Quality, billing to Finance, customer service to Customer Support, app issues to Technical Support, suggestions and compliments to Customer Experience, and unclear cases to General Support. Team assignment atomically creates one pending notification in a local database outbox. `notification:list` shows up to 100 pending messages without marking them as sent. Each confirmed `ticket:update` run advances exactly one step: `Open` → `In Progress` → `Resolved` → `Closed`. This prevents accidentally skipping a stage. Closed tickets cannot advance further.
+
+## Optional webhook notification delivery
+
+Notification delivery is disabled by default. To opt in, set `NOTIFICATION_WEBHOOK_URL` to an HTTP or HTTPS endpoint in `.env`. You may also set `NOTIFICATION_WEBHOOK_TOKEN` for Bearer authentication and `NOTIFICATION_MAX_ATTEMPTS` from 1 to 20; the default is 5. Apply the latest migration, then run one delivery attempt or keep the worker polling:
+
+```powershell
+npx prisma migrate deploy
+npm run notification:deliver:once
+npm run notification:deliver:watch
+```
+
+The worker claims one due message at a time with a five-minute lease, sends JSON with a stable event ID and `Idempotency-Key` header, and records the result. Retryable failures use bounded delays of 1, 5, 15, and then 60 minutes. A message becomes `Failed` after the configured attempt limit or immediately after a non-retryable response. Because network acknowledgements can be lost, receivers should deduplicate by the event ID or idempotency key. No destination is provisioned and no webhook is contacted unless you explicitly configure the URL and run the worker.

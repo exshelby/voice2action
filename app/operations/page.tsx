@@ -6,6 +6,7 @@ import {
   TicketPriority,
   TicketStatus,
   TicketTeam,
+  type NotificationStatus as NotificationStatusValue,
   type Prisma,
   type TicketPriority as TicketPriorityValue,
   type TicketStatus as TicketStatusValue,
@@ -54,6 +55,20 @@ const PRIORITY_STYLES: Record<TicketPriorityValue, string> = {
   NORMAL: "border-indigo-200 bg-indigo-50 text-indigo-700",
   HIGH: "border-amber-200 bg-amber-50 text-amber-700",
   CRITICAL: "border-rose-200 bg-rose-50 text-rose-700",
+};
+
+const NOTIFICATION_LABELS: Record<NotificationStatusValue, string> = {
+  PENDING: "Pending",
+  SENDING: "Sending",
+  SENT: "Delivered",
+  FAILED: "Failed",
+};
+
+const NOTIFICATION_STYLES: Record<NotificationStatusValue, string> = {
+  PENDING: "bg-amber-100 text-amber-700",
+  SENDING: "bg-blue-100 text-blue-700",
+  SENT: "bg-emerald-100 text-emerald-700",
+  FAILED: "bg-rose-100 text-rose-700",
 };
 
 const TEAM_LABELS: Record<TicketTeamValue, string> = {
@@ -175,7 +190,14 @@ export default async function OperationsPage({
   };
   const activeFilterCount = [query, status, team, category, priority, sla].filter(Boolean).length;
 
-  const [tickets, matchingTicketCount, pendingNotifications, statusGroups, overdueTicketCount] = await Promise.all([
+  const [
+    tickets,
+    matchingTicketCount,
+    queueNotifications,
+    statusGroups,
+    overdueTicketCount,
+    notificationStatusGroups,
+  ] = await Promise.all([
     prisma.ticket.findMany({
       where: ticketWhere,
       orderBy: { createdAt: "desc" },
@@ -183,9 +205,13 @@ export default async function OperationsPage({
     }),
     prisma.ticket.count({ where: ticketWhere }),
     prisma.notification.findMany({
-      where: { status: NotificationStatus.PENDING },
+      where: {
+        status: {
+          in: [NotificationStatus.PENDING, NotificationStatus.SENDING, NotificationStatus.FAILED],
+        },
+      },
       include: { ticket: { select: { ticketNumber: true } } },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
       take: 20,
     }),
     prisma.ticket.groupBy({
@@ -200,12 +226,23 @@ export default async function OperationsPage({
         ],
       },
     }),
+    prisma.notification.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
   ]);
 
   const statusCounts = Object.fromEntries(
     statusGroups.map((group) => [group.status, group._count._all]),
   ) as Partial<Record<TicketStatusValue, number>>;
   const totalTickets = statusGroups.reduce((total, group) => total + group._count._all, 0);
+  const notificationStatusCounts = Object.fromEntries(
+    notificationStatusGroups.map((group) => [group.status, group._count._all]),
+  ) as Partial<Record<NotificationStatusValue, number>>;
+  const queuedAlertCount =
+    (notificationStatusCounts.PENDING ?? 0) +
+    (notificationStatusCounts.SENDING ?? 0) +
+    (notificationStatusCounts.FAILED ?? 0);
 
   return (
     <main className="min-h-screen bg-[#f4f7fb] text-slate-950">
@@ -269,7 +306,12 @@ export default async function OperationsPage({
           <MetricCard label="Open" value={statusCounts.OPEN ?? 0} helper="Waiting to start" accent="amber" />
           <MetricCard label="In progress" value={statusCounts.IN_PROGRESS ?? 0} helper="Being investigated" accent="blue" />
           <MetricCard label="Overdue" value={overdueTicketCount} helper="Needs SLA attention" accent="rose" />
-          <MetricCard label="Pending alerts" value={pendingNotifications.length} helper="Ready for delivery" accent="emerald" />
+          <MetricCard
+            label="Alert queue"
+            value={queuedAlertCount}
+            helper={`${notificationStatusCounts.FAILED ?? 0} failed deliveries`}
+            accent="emerald"
+          />
         </section>
 
         <section aria-labelledby="ticket-filters-heading" className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -458,35 +500,49 @@ export default async function OperationsPage({
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-600">Notification outbox</p>
-                  <h2 className="mt-1 text-xl font-bold">Pending alerts</h2>
+                  <h2 className="mt-1 text-xl font-bold">Delivery queue</h2>
                 </div>
                 <span className="grid size-9 place-items-center rounded-full bg-emerald-50 text-sm font-black text-emerald-700">
-                  {pendingNotifications.length}
+                  {queuedAlertCount}
                 </span>
               </div>
 
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Stored safely and waiting for a future email or chat sender.
+                The webhook worker leases each alert and retries temporary delivery failures safely.
               </p>
 
               <div className="mt-5 space-y-3">
-                {pendingNotifications.length === 0 ? (
-                  <EmptyState title="Queue is clear" body="There are no pending team notifications." compact />
+                {queueNotifications.length === 0 ? (
+                  <EmptyState title="Queue is clear" body="There are no alerts waiting for delivery attention." compact />
                 ) : (
-                  pendingNotifications.map((notification) => (
+                  queueNotifications.map((notification) => (
                     <article key={notification.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <span className="font-mono text-xs font-bold text-emerald-700">
                           {notificationReference(notification.id)}
                         </span>
-                        <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700">
-                          Pending
+                        <span className={`rounded-full px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${NOTIFICATION_STYLES[notification.status]}`}>
+                          {notification.status === NotificationStatus.PENDING && notification.attemptCount > 0
+                            ? "Retry scheduled"
+                            : NOTIFICATION_LABELS[notification.status]}
                         </span>
                       </div>
                       <h3 className="mt-3 text-sm font-bold leading-5 text-slate-900">{notification.subject}</h3>
                       <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600">{notification.message}</p>
+                      {notification.lastError ? (
+                        <p className="mt-2 rounded-lg bg-rose-50 px-2.5 py-2 text-xs leading-5 text-rose-700">
+                          {notification.lastError}
+                        </p>
+                      ) : null}
+                      {notification.status === NotificationStatus.PENDING && notification.attemptCount > 0 ? (
+                        <p className="mt-2 text-xs font-semibold text-amber-700">
+                          Next retry: {dateFormatter.format(notification.nextAttemptAt)}
+                        </p>
+                      ) : null}
                       <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                        <span>{TEAM_LABELS[notification.team]}</span>
+                        <span>
+                          {TEAM_LABELS[notification.team]} · {notification.attemptCount} {notification.attemptCount === 1 ? "attempt" : "attempts"}
+                        </span>
                         <Link
                           href={`/operations/tickets/${notification.ticket.ticketNumber}`}
                           className="font-semibold text-indigo-600 hover:text-indigo-800"

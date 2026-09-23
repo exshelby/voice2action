@@ -411,9 +411,18 @@ export default async function TicketDetailPage({
                       <div><dt className="inline">Team: </dt><dd className="inline font-semibold">{TEAM_LABELS[notification.team]}</dd></div>
                       <div><dt className="inline">Attempts: </dt><dd className="inline font-semibold">{notification.attemptCount}</dd></div>
                       <div><dt className="inline">Queued: </dt><dd className="inline font-semibold">{dateFormatter.format(notification.createdAt)}</dd></div>
+                      {notification.status === NotificationStatus.PENDING && notification.attemptCount > 0 ? (
+                        <div><dt className="inline">Next retry: </dt><dd className="inline font-semibold">{dateFormatter.format(notification.nextAttemptAt)}</dd></div>
+                      ) : null}
                     </dl>
 
-                    {notification.status === NotificationStatus.PENDING ? (
+                    {notification.lastError ? (
+                      <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700">
+                        Last delivery error: {notification.lastError}
+                      </p>
+                    ) : null}
+
+                    {notification.status === NotificationStatus.PENDING || notification.status === NotificationStatus.FAILED ? (
                       <form action={markNotificationDeliveredFromDashboard} className="mt-4 border-t border-slate-200 pt-4">
                         <input type="hidden" name="notificationId" value={notification.id} />
                         <label className="flex items-start gap-2 text-sm text-slate-600">

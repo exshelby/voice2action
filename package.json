@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "notification:list": "node scripts/list-notifications.mjs",
+    "notification:deliver:once": "node scripts/deliver-notifications.mjs --once",
+    "notification:deliver:watch": "node scripts/deliver-notifications.mjs --watch",
     "transcribe:once": "node scripts/transcribe-feedback.mjs --once",
     "transcribe:watch": "node scripts/transcribe-feedback.mjs --watch",
     "transcribe:show": "node scripts/show-transcript.mjs",

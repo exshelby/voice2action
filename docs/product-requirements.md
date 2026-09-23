@@ -121,6 +121,10 @@ Every ticket status is recorded as an immutable timestamped event, regardless of
 
 Every ticket has a triage priority and deterministic response and resolution deadlines. Low, normal, high, and critical priorities map to 24-hour/5-day, 8-hour/3-day, 2-hour/24-hour, and 30-minute/4-hour service windows. Deadlines are calculated from the original ticket creation time, so escalating priority never grants extra time. The first departure from `OPEN` records the observed response time, while the operations dashboard and analytics surface active overdue work. Operators can filter by priority or overdue state, explicitly confirm priority changes, and inspect an immutable priority history. Existing tickets begin with a normal-priority baseline; the system does not invent earlier priority changes or response timestamps.
 
+## Phase 2: seventeenth slice — webhook notification delivery worker
+
+An explicitly configured local worker can deliver queued team notifications to one HTTP or HTTPS webhook. The webhook receives a versioned JSON payload, a stable event ID, and an idempotency header so the receiving system can suppress duplicates. Workers claim one eligible row with a five-minute lease and `SKIP LOCKED`, preventing simultaneous workers from sending the same claim. Successful delivery records `SENT`; temporary network, throttling, and server failures return the alert to `PENDING` with bounded exponential backoff; invalid requests and exhausted retries become `FAILED`. Expired leases are recovered automatically. The dashboard surfaces pending, sending, retrying, and failed alerts. Delivery remains disabled until a webhook URL is deliberately configured, and this slice does not provision an email, chat, or n8n destination.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:
