@@ -158,6 +158,10 @@ The ticket detail route reads typed work-log entries through the ticket relation
 
 An `AFTER INSERT OR UPDATE OF status` PostgreSQL trigger appends immutable rows to `ticket_status_event`. New tickets receive a creation event with no prior status, while later entries contain both the previous and new status. Updates that leave status unchanged produce no event. The migration creates one baseline event for each existing ticket at migration time so the interface distinguishes observed state from known transitions. The ticket detail query loads this relation newest first and renders it in the lifecycle panel.
 
+## Phase 2 ticket-priority-and-SLA slice
+
+The ticket table stores a priority, response deadline, resolution deadline, and optional first-response timestamp. A PostgreSQL `BEFORE INSERT OR UPDATE OF priority, status` trigger applies the fixed SLA policy from the original ticket creation time and records the first transition out of `OPEN`; this keeps terminal, browser, and future automation writes consistent. A second trigger appends each real priority change to `ticket_priority_event`, and the migration adds one normal-priority baseline event for existing tickets without inventing past history. The localhost dashboard validates priority and overdue URL filters, highlights the deadline relevant to the active lifecycle stage, and uses an optimistic Server Action for confirmed priority changes. Analytics reports the priority mix and active tickets whose current response or resolution deadline has passed.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

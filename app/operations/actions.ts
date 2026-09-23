@@ -5,9 +5,11 @@ import { revalidatePath } from "next/cache";
 import {
   NotificationStatus,
   NotificationType,
+  TicketPriority,
   TicketStatus,
   TicketTeam,
   TicketWorklogType,
+  type TicketPriority as TicketPriorityValue,
   type TicketStatus as TicketStatusValue,
   type TicketTeam as TicketTeamValue,
   type TicketWorklogType as TicketWorklogTypeValue,
@@ -18,6 +20,7 @@ import { requireLocalOperationsRequest } from "./security";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TEAM_VALUES = new Set<TicketTeamValue>(Object.values(TicketTeam));
+const PRIORITY_VALUES = new Set<TicketPriorityValue>(Object.values(TicketPriority));
 const WORKLOG_TYPE_VALUES = new Set<TicketWorklogTypeValue>(Object.values(TicketWorklogType));
 
 const TEAM_LABELS: Record<TicketTeamValue, string> = {
@@ -36,7 +39,52 @@ function ticketReference(ticketNumber: number) {
 
 function revalidateTicketPages(ticketNumber: number) {
   revalidatePath("/operations");
+  revalidatePath("/operations/analytics");
   revalidatePath(`/operations/tickets/${ticketNumber}`);
+}
+
+export async function changeTicketPriorityFromDashboard(formData: FormData) {
+  await requireLocalOperationsRequest();
+
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const priority = String(formData.get("priority") ?? "") as TicketPriorityValue;
+  const confirmed = formData.get("confirmed") === "yes";
+
+  if (!UUID_PATTERN.test(ticketId)) {
+    throw new Error("A valid ticket ID is required.");
+  }
+  if (!PRIORITY_VALUES.has(priority)) {
+    throw new Error("Choose a valid ticket priority.");
+  }
+  if (!confirmed) {
+    throw new Error("Confirm the priority change before continuing.");
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { priority: true, status: true, ticketNumber: true },
+  });
+
+  if (!ticket) {
+    throw new Error("Ticket not found.");
+  }
+  if (ticket.status === TicketStatus.CLOSED) {
+    throw new Error("Closed tickets cannot change priority.");
+  }
+  if (ticket.priority === priority) {
+    return;
+  }
+
+  const updated = await prisma.ticket.updateMany({
+    where: { id: ticketId, priority: ticket.priority },
+    data: { priority },
+  });
+
+  if (updated.count !== 1) {
+    throw new Error("This ticket priority changed while you were updating it. Refresh and try again.");
+  }
+
+  revalidateTicketPages(ticket.ticketNumber);
 }
 
 function nextStatus(status: TicketStatusValue) {

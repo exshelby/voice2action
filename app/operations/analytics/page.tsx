@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import {
+  TicketPriority,
   TicketStatus,
+  type TicketPriority as TicketPriorityValue,
   type TicketStatus as TicketStatusValue,
   type TicketTeam,
 } from "@/generated/prisma/client";
@@ -26,6 +28,20 @@ const STATUS_LABELS: Record<TicketStatusValue, string> = {
   IN_PROGRESS: "In progress",
   RESOLVED: "Resolved",
   CLOSED: "Closed",
+};
+
+const PRIORITY_ORDER: TicketPriorityValue[] = [
+  TicketPriority.CRITICAL,
+  TicketPriority.HIGH,
+  TicketPriority.NORMAL,
+  TicketPriority.LOW,
+];
+
+const PRIORITY_LABELS: Record<TicketPriorityValue, string> = {
+  LOW: "Low",
+  NORMAL: "Normal",
+  HIGH: "High",
+  CRITICAL: "Critical",
 };
 
 const TEAM_LABELS: Record<TicketTeam, string> = {
@@ -81,6 +97,9 @@ export default async function OperationsAnalyticsPage() {
       title: true,
       category: true,
       status: true,
+      priority: true,
+      responseDueAt: true,
+      resolutionDueAt: true,
       assignedTeam: true,
       createdAt: true,
     },
@@ -97,8 +116,14 @@ export default async function OperationsAnalyticsPage() {
     (ticket) => ticket.status === TicketStatus.RESOLVED || ticket.status === TicketStatus.CLOSED,
   );
   const statusCounts = countValues(tickets.map((ticket) => ticket.status));
+  const priorityCounts = countValues(tickets.map((ticket) => ticket.priority));
   const categoryCounts = countValues(tickets.map((ticket) => ticket.category));
   const teamCounts = countValues(tickets.map((ticket) => ticket.assignedTeam ?? "UNASSIGNED"));
+  const overdueTickets = tickets.filter(
+    (ticket) =>
+      (ticket.status === TicketStatus.OPEN && ticket.responseDueAt < now) ||
+      (ticket.status === TicketStatus.IN_PROGRESS && ticket.resolutionDueAt < now),
+  );
 
   const agingBuckets = [
     { label: "Under 1 day", count: 0 },
@@ -195,10 +220,11 @@ export default async function OperationsAnalyticsPage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <section aria-label="Analytics summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section aria-label="Analytics summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard label="Tickets analyzed" value={String(tickets.length)} helper={`Up to ${ANALYTICS_LIMIT} recent tickets`} accent="indigo" />
           <MetricCard label="Active workload" value={String(activeTickets.length)} helper="Open or in progress" accent="amber" />
           <MetricCard label="Completion rate" value={`${completionRate}%`} helper="Resolved or closed" accent="emerald" />
+          <MetricCard label="Overdue SLA" value={String(overdueTickets.length)} helper="Active tickets past deadline" accent="rose" />
           <MetricCard
             label="Oldest active"
             value={activeTickets.length === 0 ? "—" : oldestActiveAge < 1 ? "<1 day" : `${Math.floor(oldestActiveAge)}d`}
@@ -215,6 +241,16 @@ export default async function OperationsAnalyticsPage() {
                 count: statusCounts[status] ?? 0,
               }))}
               color="bg-indigo-500"
+            />
+          </AnalyticsCard>
+
+          <AnalyticsCard eyebrow="Triage" title="Priority mix">
+            <BarList
+              rows={PRIORITY_ORDER.map((priority) => ({
+                label: PRIORITY_LABELS[priority],
+                count: priorityCounts[priority] ?? 0,
+              }))}
+              color="bg-rose-500"
             />
           </AnalyticsCard>
 

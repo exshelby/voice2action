@@ -117,6 +117,10 @@ A local operator can append investigation and resolution notes to an active tick
 
 Every ticket status is recorded as an immutable timestamped event, regardless of whether the change comes from the browser, terminal workflow, or future automation. A database trigger records ticket creation and each real status transition while ignoring updates that do not change status. Existing tickets receive a baseline event for the status observed when tracking begins; the system does not invent timestamps for earlier transitions. The ticket detail page presents the recorded history beside the lifecycle controls.
 
+## Phase 2: sixteenth slice — ticket priority and SLA tracking
+
+Every ticket has a triage priority and deterministic response and resolution deadlines. Low, normal, high, and critical priorities map to 24-hour/5-day, 8-hour/3-day, 2-hour/24-hour, and 30-minute/4-hour service windows. Deadlines are calculated from the original ticket creation time, so escalating priority never grants extra time. The first departure from `OPEN` records the observed response time, while the operations dashboard and analytics surface active overdue work. Operators can filter by priority or overdue state, explicitly confirm priority changes, and inspect an immutable priority history. Existing tickets begin with a normal-priority baseline; the system does not invent earlier priority changes or response timestamps.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

@@ -3,9 +3,11 @@ import type { ReactNode } from "react";
 
 import {
   NotificationStatus,
+  TicketPriority,
   TicketStatus,
   TicketTeam,
   type Prisma,
+  type TicketPriority as TicketPriorityValue,
   type TicketStatus as TicketStatusValue,
   type TicketTeam as TicketTeamValue,
 } from "@/generated/prisma/client";
@@ -40,6 +42,20 @@ const STATUS_STYLES: Record<TicketStatusValue, string> = {
   CLOSED: "border-slate-200 bg-slate-100 text-slate-600",
 };
 
+const PRIORITY_LABELS: Record<TicketPriorityValue, string> = {
+  LOW: "Low",
+  NORMAL: "Normal",
+  HIGH: "High",
+  CRITICAL: "Critical",
+};
+
+const PRIORITY_STYLES: Record<TicketPriorityValue, string> = {
+  LOW: "border-slate-200 bg-slate-50 text-slate-600",
+  NORMAL: "border-indigo-200 bg-indigo-50 text-indigo-700",
+  HIGH: "border-amber-200 bg-amber-50 text-amber-700",
+  CRITICAL: "border-rose-200 bg-rose-50 text-rose-700",
+};
+
 const TEAM_LABELS: Record<TicketTeamValue, string> = {
   LOGISTICS: "Logistics",
   QUALITY: "Quality",
@@ -63,6 +79,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const STATUS_VALUES = new Set<TicketStatusValue>(Object.values(TicketStatus));
+const PRIORITY_VALUES = new Set<TicketPriorityValue>(Object.values(TicketPriority));
 const TEAM_VALUES = new Set<TicketTeamValue>(Object.values(TicketTeam));
 const CATEGORY_VALUES = new Set(Object.keys(CATEGORY_LABELS));
 
@@ -113,6 +130,8 @@ export default async function OperationsPage({
   const requestedStatus = firstSearchValue(rawSearchParams.status);
   const requestedTeam = firstSearchValue(rawSearchParams.team);
   const requestedCategory = firstSearchValue(rawSearchParams.category);
+  const requestedPriority = firstSearchValue(rawSearchParams.priority);
+  const requestedSla = firstSearchValue(rawSearchParams.sla);
   const status = STATUS_VALUES.has(requestedStatus as TicketStatusValue)
     ? (requestedStatus as TicketStatusValue)
     : null;
@@ -120,6 +139,11 @@ export default async function OperationsPage({
     ? (requestedTeam as TicketTeamValue)
     : null;
   const category = CATEGORY_VALUES.has(requestedCategory) ? requestedCategory : null;
+  const priority = PRIORITY_VALUES.has(requestedPriority as TicketPriorityValue)
+    ? (requestedPriority as TicketPriorityValue)
+    : null;
+  const sla = requestedSla === "OVERDUE" ? requestedSla : null;
+  const now = new Date();
   const searchedTicketNumber = ticketNumberFromSearch(query);
   const searchConditions: Prisma.TicketWhereInput[] = query
     ? [
@@ -132,11 +156,26 @@ export default async function OperationsPage({
     ...(status ? { status } : {}),
     ...(team ? { assignedTeam: team } : {}),
     ...(category ? { category } : {}),
-    ...(searchConditions.length ? { OR: searchConditions } : {}),
+    ...(priority ? { priority } : {}),
+    ...((sla === "OVERDUE" || searchConditions.length)
+      ? {
+          AND: [
+            ...(sla === "OVERDUE"
+              ? [{
+                  OR: [
+                    { status: TicketStatus.OPEN, responseDueAt: { lt: now } },
+                    { status: TicketStatus.IN_PROGRESS, resolutionDueAt: { lt: now } },
+                  ],
+                }]
+              : []),
+            ...(searchConditions.length ? [{ OR: searchConditions }] : []),
+          ],
+        }
+      : {}),
   };
-  const activeFilterCount = [query, status, team, category].filter(Boolean).length;
+  const activeFilterCount = [query, status, team, category, priority, sla].filter(Boolean).length;
 
-  const [tickets, matchingTicketCount, pendingNotifications, statusGroups] = await Promise.all([
+  const [tickets, matchingTicketCount, pendingNotifications, statusGroups, overdueTicketCount] = await Promise.all([
     prisma.ticket.findMany({
       where: ticketWhere,
       orderBy: { createdAt: "desc" },
@@ -152,6 +191,14 @@ export default async function OperationsPage({
     prisma.ticket.groupBy({
       by: ["status"],
       _count: { _all: true },
+    }),
+    prisma.ticket.count({
+      where: {
+        OR: [
+          { status: TicketStatus.OPEN, responseDueAt: { lt: now } },
+          { status: TicketStatus.IN_PROGRESS, resolutionDueAt: { lt: now } },
+        ],
+      },
     }),
   ]);
 
@@ -217,10 +264,11 @@ export default async function OperationsPage({
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <section aria-label="Ticket summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section aria-label="Ticket summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard label="Total tickets" value={totalTickets} helper="All recorded work" accent="indigo" />
           <MetricCard label="Open" value={statusCounts.OPEN ?? 0} helper="Waiting to start" accent="amber" />
           <MetricCard label="In progress" value={statusCounts.IN_PROGRESS ?? 0} helper="Being investigated" accent="blue" />
+          <MetricCard label="Overdue" value={overdueTicketCount} helper="Needs SLA attention" accent="rose" />
           <MetricCard label="Pending alerts" value={pendingNotifications.length} helper="Ready for delivery" accent="emerald" />
         </section>
 
@@ -237,7 +285,7 @@ export default async function OperationsPage({
             ) : null}
           </div>
 
-          <form action="/operations" method="get" className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.5fr)_1fr_1fr_1fr_auto] xl:items-end">
+          <form action="/operations" method="get" className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4 xl:items-end">
             <label className="block text-sm font-semibold text-slate-700">
               Search
               <input
@@ -268,7 +316,17 @@ export default async function OperationsPage({
               ))}
             </FilterSelect>
 
-            <button type="submit" className="h-[42px] rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 md:col-span-2 xl:col-span-1">
+            <FilterSelect name="priority" label="Priority" allLabel="All priorities" value={priority ?? ""}>
+              {Object.values(TicketPriority).map((option) => (
+                <option key={option} value={option}>{PRIORITY_LABELS[option]}</option>
+              ))}
+            </FilterSelect>
+
+            <FilterSelect name="sla" label="SLA" allLabel="All SLA states" value={sla ?? ""}>
+              <option value="OVERDUE">Overdue only</option>
+            </FilterSelect>
+
+            <button type="submit" className="h-[42px] rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
               Apply filters
             </button>
           </form>
@@ -295,6 +353,12 @@ export default async function OperationsPage({
               ) : (
                 tickets.map((ticket) => {
                   const nextLabel = nextStatusLabel(ticket.status);
+                  const activeDeadline = ticket.status === TicketStatus.OPEN
+                    ? { label: "Response due", value: ticket.responseDueAt }
+                    : ticket.status === TicketStatus.IN_PROGRESS
+                      ? { label: "Resolution due", value: ticket.resolutionDueAt }
+                      : null;
+                  const isOverdue = activeDeadline ? activeDeadline.value < now : false;
 
                   return (
                     <article key={ticket.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -307,6 +371,9 @@ export default async function OperationsPage({
                               </span>
                               <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${STATUS_STYLES[ticket.status]}`}>
                                 {STATUS_LABELS[ticket.status]}
+                              </span>
+                              <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${PRIORITY_STYLES[ticket.priority]}`}>
+                                {PRIORITY_LABELS[ticket.priority]}
                               </span>
                             </div>
                             <h3 className="mt-3 text-xl font-bold tracking-tight text-slate-950">{ticket.title}</h3>
@@ -334,6 +401,14 @@ export default async function OperationsPage({
                             <dt className="text-xs text-slate-400">Last updated</dt>
                             <dd className="mt-1 font-semibold text-slate-700">{dateFormatter.format(ticket.updatedAt)}</dd>
                           </div>
+                          {activeDeadline ? (
+                            <div>
+                              <dt className="text-xs text-slate-400">{activeDeadline.label}</dt>
+                              <dd className={`mt-1 font-semibold ${isOverdue ? "text-rose-700" : "text-slate-700"}`}>
+                                {dateFormatter.format(activeDeadline.value)}{isOverdue ? " · Overdue" : ""}
+                              </dd>
+                            </div>
+                          ) : null}
                         </dl>
 
                         <Link
@@ -468,12 +543,13 @@ function MetricCard({
   label: string;
   value: number;
   helper: string;
-  accent: "indigo" | "amber" | "blue" | "emerald";
+  accent: "indigo" | "amber" | "blue" | "rose" | "emerald";
 }) {
   const accentStyles = {
     indigo: "bg-indigo-500",
     amber: "bg-amber-500",
     blue: "bg-blue-500",
+    rose: "bg-rose-500",
     emerald: "bg-emerald-500",
   };
 
