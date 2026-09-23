@@ -137,6 +137,10 @@ Each local operator account has one of three ordered roles. Operators can review
 
 An Administrator can manage local operator accounts from a localhost-only browser page. Creation requires an explicit confirmation and initially permits only Operator or Manager access; promotion to Administrator is a separate confirmed action. Administrators can change another account's role or active status and revoke its sessions. The server rechecks the acting account's current Administrator role inside the same database transaction that performs each change. Row locks and policy checks prevent self-demotion, self-deactivation, self-session revocation, and removal of the final active Administrator. Each browser account change appends an attributed before-and-after event for local audit. This slice does not add password reset, deletion, public registration, remote administration, MFA, or production identity infrastructure.
 
+## Phase 3: first slice — operational safety foundation
+
+Every push and pull request runs the deterministic JavaScript and Python tests, lint, TypeScript validation, Prisma migrations against an isolated PostgreSQL service, a production build, and HTTP smoke checks. A local backup command produces a PostgreSQL custom-format dump plus customer audio, records byte sizes and SHA-256 hashes, and leaves an unmistakable marker if the run does not finish. A separate command verifies every checksum and asks `pg_restore` to parse the archive without changing a database. Customer audio becomes eligible for permanent retirement only after its ticket has been closed longer than the configured retention window. Retention is dry-run-only by default, confines paths to `storage/audio`, records the deletion time, and requires both an apply flag and an exact confirmation phrase. Public deployment, TLS termination, MFA, password recovery, centralized monitoring, and a managed notification destination remain later production-readiness decisions.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

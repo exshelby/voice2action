@@ -178,7 +178,15 @@ The operator table stores an ordered `OPERATOR`, `MANAGER`, or `ADMIN` role. Ses
 
 ## Phase 2 local operator-administration slice
 
+Administrators use a server-rendered localhost page backed by Server Actions. Each account mutation rechecks the actor's current Administrator role within the same transaction, serializes changes with a transaction-scoped advisory lock, locks the affected account and active Administrator rows, applies the policy, and appends an immutable account event. Session revocation and account deactivation remove affected sessions atomically. The browser never receives password hashes or session tokens.
+
 The `/operations/operators` route is server-rendered and requires Administrator access before querying account data. Its Server Actions validate untrusted form fields, require explicit confirmation, and then acquire one transaction-scoped PostgreSQL advisory lock before re-locking and rechecking the acting Administrator. Security mutations are therefore serialized; role and active-state changes also lock the target and all active Administrator rows before evaluating the final-Administrator rule. Policy helpers reject self-demotion, self-deactivation, and self-session revocation; deactivation deletes the target's sessions atomically. Browser-created accounts begin as Operator or Manager, with Administrator promotion handled as a distinct confirmed update. Each creation, account update, or session revocation appends an actor-and-target event with role and active-state snapshots where applicable. The interface exposes no update or delete path for this local security history. CLI provisioning remains available for recovery and initial bootstrap.
+
+## Phase 3 operational-safety slice
+
+GitHub Actions provisions an isolated PostgreSQL service, applies every migration, and verifies tests, static analysis, the production build, the unauthenticated operations redirect, database health, and invalid-upload handling. Local backups stream a custom-format `pg_dump` directly from the PostgreSQL container, copy the audio directory, and generate a versioned SHA-256 manifest. Verification recomputes the manifest and sends the dump to `pg_restore --list`, which checks archive readability without restoring or mutating data.
+
+Audio retention uses the immutable ticket-status history rather than filesystem age. Only recordings whose ticket remains `CLOSED` and whose recorded close event is older than the configured window are eligible. The command validates the database object key against the feedback UUID and the fixed audio directory. Apply mode temporarily renames each file, conditionally records `audio_deleted_at`, deletes the quarantined file, and compensates the database and filename if deletion fails. The original transcript and operational audit remain available after audio retirement.
 
 ## Design rules
 

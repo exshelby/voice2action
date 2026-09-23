@@ -42,6 +42,8 @@ The first milestone is one real voice recording successfully moving from the cus
 
 Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, review-gated local ticket creation, rule-based team assignment, a durable notification outbox with an optional webhook delivery worker, a local ticket status workflow, and authenticated operator attribution.
 
+The first production-readiness foundation is also in place: automated CI verification, HTTP smoke checks, checksummed database-and-audio backups, backup verification, and dry-run-first audio retention. See [the operations runbook](docs/operations-runbook.md) before handling non-synthetic data.
+
 The local operations dashboard is available at `http://localhost:3000/operations` while `npm run dev` is running. It shows ticket totals, recent tickets, assigned teams, status progress, SLA deadlines, and pending notification messages. Search by ticket reference or wording, or filter the list by status, team, category, priority, and overdue state. Open `/operations/analytics` for lifecycle, priority, team, category, aging, SLA, and conservative 30-day recurring-issue summaries. Open `/operations/reviews` to review transcribed feedback in the browser while preserving the original model output, then explicitly confirm ticket creation from the saved review. Administrators can open `/operations/operators` to create Operator or Manager accounts, change roles or active status, revoke another operator's sessions, and inspect the append-only account-change history. Status changes advance one step at a time, require checking a confirmation box, and are recorded automatically in an immutable history. Open a ticket to view its full transcript and review audit trail, append permanent investigation or resolution notes, change its priority or assigned team, or confirm that a pending local notification was delivered. Priority changes recalculate response and resolution deadlines from the original creation time and are recorded in an immutable history. A resolution note is required before an in-progress ticket can move to Resolved. Manual reassignment refreshes the existing assignment notification for the new team. New browser actions record the signed-in operator, while historical and terminal-created records remain labeled `System / pre-auth`.
 
 ## Local operator sign-in
@@ -131,3 +133,27 @@ npm run notification:deliver:watch
 ```
 
 The worker claims one due message at a time with a five-minute lease, sends JSON with a stable event ID and `Idempotency-Key` header, and records the result. Retryable failures use bounded delays of 1, 5, 15, and then 60 minutes. A message becomes `Failed` after the configured attempt limit or immediately after a non-retryable response. Because network acknowledgements can be lost, receivers should deduplicate by the event ID or idempotency key. No destination is provisioned and no webhook is contacted unless you explicitly configure the URL and run the worker.
+
+## Verification and local data safety
+
+Run the complete local verification before a release:
+
+```powershell
+npm run verify
+```
+
+With a built application running on port 3000, `npm run smoke:local` checks database health, the unauthenticated operations redirect, the login page, and safe rejection of missing or unsupported uploads.
+
+Create and verify a local backup with:
+
+```powershell
+npm run backup:local
+npm run backup:verify -- backups/<generated-backup-directory>
+```
+
+Backups are ignored by Git because they contain sensitive operational data. Move verified backups to encrypted media stored separately from this computer. Audio retention defaults to a 90-day window after the ticket's recorded close event and performs only a preview unless the exact apply confirmation is present:
+
+```powershell
+npm run retention:audio -- --days 90
+npm run retention:audio -- --days 90 --apply --confirm DELETE-ELIGIBLE-AUDIO
+```

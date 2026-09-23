@@ -89,6 +89,7 @@ model Feedback {
   createdAt                 DateTime       @default(now()) @map("created_at")
   updatedAt                 DateTime       @updatedAt @map("updated_at")
   audioObjectKey            String         @map("audio_object_key")
+  audioDeletedAt            DateTime?      @map("audio_deleted_at")
   mimeType                  String         @map("mime_type")
   fileSizeBytes             Int            @map("file_size_bytes")
   durationMs                Int?           @map("duration_ms")
@@ -117,6 +118,7 @@ model Feedback {
   @@index([status])
   @@index([createdAt])
   @@index([reviewedById])
+  @@index([audioDeletedAt])
   @@map("feedback")
 }
 

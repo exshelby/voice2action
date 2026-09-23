@@ -54,3 +54,6 @@ __pycache__/
 
 # Local development audio files
 /storage/
+
+# Local backups contain transcripts, password hashes, and customer audio
+/backups/
