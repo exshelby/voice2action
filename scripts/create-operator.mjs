@@ -11,6 +11,7 @@ import {
   normalizeOperatorUsername,
   validateOperatorPassword,
 } from "../lib/operator-password.mjs";
+import { isOperatorRole, normalizeOperatorRole, operatorRoleLabel } from "../lib/operator-roles.mjs";
 
 function readHidden(label) {
   if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== "function") {
@@ -64,6 +65,7 @@ function readHidden(label) {
 async function main() {
   const username = normalizeOperatorUsername(process.argv[2]);
   const displayName = String(process.argv[3] ?? "").replace(/\s+/g, " ").trim();
+  const role = normalizeOperatorRole(process.argv[4] ?? "OPERATOR");
 
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is not configured.");
@@ -73,6 +75,9 @@ async function main() {
   }
   if (displayName.length < 2 || displayName.length > 100) {
     throw new Error("Display name must contain between 2 and 100 characters.");
+  }
+  if (!isOperatorRole(role)) {
+    throw new Error("Role must be OPERATOR, MANAGER, or ADMIN.");
   }
 
   const password = await readHidden("Password (12+ characters): ");
@@ -89,18 +94,18 @@ async function main() {
 
   try {
     const created = await client.query(
-      `INSERT INTO operator (id, username, display_name, password_hash, updated_at)
-       VALUES ($1, $2, $3, $4, NOW())
+      `INSERT INTO operator (id, username, display_name, password_hash, role, updated_at)
+       VALUES ($1, $2, $3, $4, $5::operator_role, NOW())
        ON CONFLICT (username) DO NOTHING
        RETURNING id`,
-      [randomUUID(), username, displayName, passwordHash],
+      [randomUUID(), username, displayName, passwordHash, role],
     );
 
     if (created.rowCount !== 1) {
       throw new Error(`Operator ${username} already exists.`);
     }
 
-    console.log(`Created local operator ${displayName} (@${username}).`);
+    console.log(`Created local ${operatorRoleLabel(role).toLowerCase()} ${displayName} (@${username}).`);
   } finally {
     await client.end();
   }

@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import {
+  OperatorRole,
   TicketPriority,
   TicketStatus,
   type TicketPriority as TicketPriorityValue,
@@ -8,6 +10,7 @@ import {
   type TicketTeam,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { hasMinimumOperatorRole } from "@/lib/operator-roles.mjs";
 
 import { requireOperationsOperator } from "../security";
 
@@ -89,7 +92,11 @@ function ticketAgeDays(createdAt: Date, now: Date) {
 }
 
 export default async function OperationsAnalyticsPage() {
-  await requireOperationsOperator();
+  const operator = await requireOperationsOperator();
+
+  if (!hasMinimumOperatorRole(operator.role, OperatorRole.MANAGER)) {
+    redirect("/operations?access=denied");
+  }
 
   const tickets = await prisma.ticket.findMany({
     select: {

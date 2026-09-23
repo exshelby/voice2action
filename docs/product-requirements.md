@@ -129,6 +129,10 @@ An explicitly configured local worker can deliver queued team notifications to o
 
 The browser operations workspace requires a locally provisioned operator account. There is no public registration route. Passwords use a memory-hard scrypt hash, successful sign-in issues an opaque database-backed session, and repeated failures temporarily lock the account. Every operations page and Server Action verifies both the localhost boundary and the current session. Reviews, browser-created tickets, manual assignment, work-log entries, priority and status transitions, and manual notification confirmation record the responsible operator without rewriting older history. Pre-authentication and terminal automation records remain explicitly identifiable as system activity. Sessions expire after eight hours and a new login revokes that operator's existing sessions. This slice remains a development safeguard rather than production identity: roles, MFA, recovery, TLS, and deployment-grade proxy hardening are future work.
 
+## Phase 2: nineteenth slice — local role-based authorization
+
+Each local operator account has one of three ordered roles. Operators can review feedback, create tickets, record work, advance ticket status, and confirm notification delivery. Managers inherit those capabilities and can also change ticket priority, reassign ownership, and view operations analytics. Administrators inherit all manager capabilities and represent the trusted local account-provisioning tier. Every protected Server Action checks its minimum role independently; conditional navigation and hidden controls improve usability but do not grant or enforce permission. Existing accounts are promoted to Administrator when the migration is first applied, while newly provisioned accounts default to Operator unless an explicit role is supplied. This local hierarchy does not add public registration, remote administration, MFA, or production deployment hardening.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

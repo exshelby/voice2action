@@ -172,6 +172,10 @@ Operators are provisioned only through an interactive local command. The command
 
 The operations layout keeps the login route reachable, while every protected page and every mutating Server Action independently requires a current active operator. PostgreSQL stores nullable operator references on reviewed feedback, ticket creation and assignment, work logs, priority and status events, and manually delivered notifications. Browser status and priority transactions set a transaction-local operator ID that the existing database triggers copy into immutable history. Null remains meaningful for legacy rows and terminal or worker activity. This layer still depends on the localhost-only request guard and plain local HTTP; it is not a production authentication boundary.
 
+## Phase 2 local role-authorization slice
+
+The operator table stores an ordered `OPERATOR`, `MANAGER`, or `ADMIN` role. Session lookup reads the current role from the operator record on every request, so permission changes do not remain stale inside an existing session. Shared fail-closed hierarchy helpers drive both server authorization and conditional presentation. Routine review and ticket work requires Operator access; analytics, priority changes, and team reassignment require Manager access; Administrator inherits every capability. Every mutating Server Action asserts its required role before reading form data or changing records, and the analytics route redirects lower roles without querying analytics data. The UI omits unavailable navigation and forms, but server checks remain authoritative. The additive migration promotes pre-existing local accounts to Administrator to preserve access, while later accounts default to Operator and may receive an explicit role through the local provisioning command.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

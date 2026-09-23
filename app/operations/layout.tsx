@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { operatorRoleLabel } from "@/lib/operator-roles.mjs";
+
 import { logoutOperator } from "./auth-actions";
 import { getCurrentOperationsOperator, requireLocalOperationsRequest } from "./security";
 
@@ -15,6 +17,9 @@ export default async function OperationsLayout({ children }: { children: ReactNo
             <span className="text-slate-400">Signed in as</span>
             <span className="font-bold">{operator.displayName}</span>
             <span className="text-slate-500">@{operator.username}</span>
+            <span className="rounded-full border border-indigo-400/30 bg-indigo-400/10 px-2 py-1 font-bold text-indigo-200">
+              {operatorRoleLabel(operator.role)}
+            </span>
             <form action={logoutOperator}>
               <button type="submit" className="rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white">
                 Sign out

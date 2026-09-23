@@ -50,12 +50,14 @@ Apply the latest migration, then create the first local operator from an interac
 
 ```powershell
 npx prisma migrate deploy
-npm run operator:create -- abel "Abel Olaboye"
+npm run operator:create -- abel "Abel Olaboye" ADMIN
 ```
 
-Start the app with `npm run dev`, then open `http://localhost:3000/operations`. Unauthenticated requests are redirected to `/operations/login`. Passwords are stored with scrypt hashes; browser sessions use random tokens whose SHA-256 hashes are stored in PostgreSQL. A session lasts eight hours, and a new login revokes that operator's earlier sessions. Five consecutive failed attempts lock the account for 15 minutes.
+Start the app with `npm run dev`, then open `http://localhost:3000/operations`. Unauthenticated requests are redirected to `/operations/login`. The optional final account argument is `OPERATOR`, `MANAGER`, or `ADMIN`; it defaults to `OPERATOR`. Operators can review feedback, create tickets, add work logs, advance status, and confirm notification delivery. Managers can also change priority, reassign tickets, and open analytics. Administrators have all manager capabilities and can be used for locally provisioning trusted accounts. Accounts that existed when the role migration was first applied are promoted to Administrator so the existing local owner is not locked out.
 
-This authentication is deliberately local-only. The cookie is restricted to `/operations`, is HTTP-only and SameSite Strict, but is not marked Secure because the documented development URL uses plain HTTP. The localhost restriction is still enforced. Do not expose this build to the internet: it has no TLS termination, roles, MFA, password recovery, centralized rate limiting, or hardened reverse-proxy trust policy.
+Passwords are stored with scrypt hashes; browser sessions use random tokens whose SHA-256 hashes are stored in PostgreSQL. A session lasts eight hours, and a new login revokes that operator's earlier sessions. Five consecutive failed attempts lock the account for 15 minutes. Role checks run independently in every mutating Server Action; hiding an unavailable control is only a usability aid.
+
+This authentication is deliberately local-only. The cookie is restricted to `/operations`, is HTTP-only and SameSite Strict, but is not marked Secure because the documented development URL uses plain HTTP. The localhost restriction is still enforced. Do not expose this build to the internet: it has no TLS termination, MFA, password recovery, centralized rate limiting, or hardened reverse-proxy trust policy.
 
 ## Local transcription setup (Windows)
 

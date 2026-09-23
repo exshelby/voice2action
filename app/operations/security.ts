@@ -6,7 +6,8 @@ import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import type { Prisma } from "@/generated/prisma/client";
+import { type OperatorRole, type Prisma } from "@/generated/prisma/client";
+import { assertMinimumOperatorRole } from "@/lib/operator-roles.mjs";
 import { prisma } from "@/lib/prisma";
 
 const SESSION_COOKIE = "voice2action_operator_session";
@@ -22,6 +23,7 @@ export type OperationsOperator = {
   id: string;
   username: string;
   displayName: string;
+  role: OperatorRole;
 };
 
 function sessionTokenHash(token: string) {
@@ -51,7 +53,7 @@ export const getCurrentOperationsOperator = cache(async (): Promise<OperationsOp
     select: {
       expiresAt: true,
       operator: {
-        select: { id: true, username: true, displayName: true, active: true },
+        select: { id: true, username: true, displayName: true, role: true, active: true },
       },
     },
   });
@@ -64,6 +66,7 @@ export const getCurrentOperationsOperator = cache(async (): Promise<OperationsOp
     id: session.operator.id,
     username: session.operator.username,
     displayName: session.operator.displayName,
+    role: session.operator.role,
   };
 });
 
@@ -75,6 +78,12 @@ export async function requireOperationsOperator() {
     redirect("/operations/login");
   }
 
+  return operator;
+}
+
+export async function requireOperationsRole(minimumRole: OperatorRole) {
+  const operator = await requireOperationsOperator();
+  assertMinimumOperatorRole(operator.role, minimumRole);
   return operator;
 }
 

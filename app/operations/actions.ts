@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import {
   NotificationStatus,
   NotificationType,
+  OperatorRole,
   TicketPriority,
   TicketStatus,
   TicketTeam,
@@ -16,7 +17,7 @@ import {
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
-import { requireOperationsOperator, withOperatorContext } from "./security";
+import { requireOperationsRole, withOperatorContext } from "./security";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TEAM_VALUES = new Set<TicketTeamValue>(Object.values(TicketTeam));
@@ -44,7 +45,7 @@ function revalidateTicketPages(ticketNumber: number) {
 }
 
 export async function changeTicketPriorityFromDashboard(formData: FormData) {
-  const operator = await requireOperationsOperator();
+  const operator = await requireOperationsRole(OperatorRole.MANAGER);
 
   const ticketId = String(formData.get("ticketId") ?? "");
   const priority = String(formData.get("priority") ?? "") as TicketPriorityValue;
@@ -102,7 +103,7 @@ function nextStatus(status: TicketStatusValue) {
 }
 
 export async function advanceTicketFromDashboard(formData: FormData) {
-  const operator = await requireOperationsOperator();
+  const operator = await requireOperationsRole(OperatorRole.OPERATOR);
 
   const ticketId = String(formData.get("ticketId") ?? "");
   const confirmed = formData.get("confirmed") === "yes";
@@ -153,7 +154,7 @@ export async function advanceTicketFromDashboard(formData: FormData) {
 }
 
 export async function addTicketWorklogFromDashboard(formData: FormData) {
-  const operator = await requireOperationsOperator();
+  const operator = await requireOperationsRole(OperatorRole.OPERATOR);
 
   const ticketId = String(formData.get("ticketId") ?? "");
   const type = String(formData.get("type") ?? "") as TicketWorklogTypeValue;
@@ -193,7 +194,7 @@ export async function addTicketWorklogFromDashboard(formData: FormData) {
 }
 
 export async function reassignTicketFromDashboard(formData: FormData) {
-  const operator = await requireOperationsOperator();
+  const operator = await requireOperationsRole(OperatorRole.MANAGER);
 
   const ticketId = String(formData.get("ticketId") ?? "");
   const selectedTeam = String(formData.get("team") ?? "") as TicketTeamValue;
@@ -280,7 +281,7 @@ export async function reassignTicketFromDashboard(formData: FormData) {
 }
 
 export async function markNotificationDeliveredFromDashboard(formData: FormData) {
-  const operator = await requireOperationsOperator();
+  const operator = await requireOperationsRole(OperatorRole.OPERATOR);
 
   const notificationId = Number(formData.get("notificationId"));
   const confirmed = formData.get("confirmed") === "yes";

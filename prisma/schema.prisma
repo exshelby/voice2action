@@ -68,6 +68,14 @@ enum NotificationStatus {
   @@map("notification_status")
 }
 
+enum OperatorRole {
+  OPERATOR
+  MANAGER
+  ADMIN
+
+  @@map("operator_role")
+}
+
 model Feedback {
   id                        String         @id @default(uuid()) @db.Uuid
   createdAt                 DateTime       @default(now()) @map("created_at")
@@ -221,6 +229,7 @@ model Operator {
   username               String                @unique
   displayName            String                @map("display_name")
   passwordHash           String                @map("password_hash")
+  role                   OperatorRole          @default(OPERATOR)
   active                 Boolean               @default(true)
   failedLoginCount       Int                   @default(0) @map("failed_login_count")
   lockedUntil            DateTime?             @map("locked_until")

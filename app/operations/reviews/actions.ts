@@ -5,9 +5,10 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { OperatorRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
-import { requireOperationsOperator, withOperatorContext } from "../security";
+import { requireOperationsRole, withOperatorContext } from "../security";
 import { ASSIGNMENT_RULE_VERSION, routingRulesJson } from "./ticket-routing";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,7 +30,7 @@ function cleanText(value: FormDataEntryValue | null) {
 }
 
 export async function saveFeedbackReviewFromDashboard(formData: FormData) {
-  const operator = await requireOperationsOperator();
+  const operator = await requireOperationsRole(OperatorRole.OPERATOR);
 
   const feedbackId = String(formData.get("feedbackId") ?? "");
   const transcript = cleanText(formData.get("transcript"));
@@ -87,7 +88,7 @@ export async function saveFeedbackReviewFromDashboard(formData: FormData) {
 }
 
 export async function createTicketFromReviewDashboard(formData: FormData) {
-  const operator = await requireOperationsOperator();
+  const operator = await requireOperationsRole(OperatorRole.OPERATOR);
 
   const feedbackId = String(formData.get("feedbackId") ?? "");
   const expectedRevision = Number(formData.get("expectedRevision"));

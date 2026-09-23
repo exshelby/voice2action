@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import {
   NotificationStatus,
+  OperatorRole,
   TicketPriority,
   TicketStatus,
   TicketTeam,
@@ -14,6 +15,7 @@ import {
   type TicketWorklogType as TicketWorklogTypeValue,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { hasMinimumOperatorRole } from "@/lib/operator-roles.mjs";
 
 import {
   addTicketWorklogFromDashboard,
@@ -143,7 +145,8 @@ export default async function TicketDetailPage({
 }: {
   params: Promise<{ ticketNumber: string }>;
 }) {
-  await requireOperationsOperator();
+  const operator = await requireOperationsOperator();
+  const canManageTicket = hasMinimumOperatorRole(operator.role, OperatorRole.MANAGER);
 
   const { ticketNumber: ticketNumberParam } = await params;
 
@@ -533,7 +536,7 @@ export default async function TicketDetailPage({
               </ol>
             </div>
 
-            {ticket.status !== TicketStatus.CLOSED ? (
+            {ticket.status !== TicketStatus.CLOSED && canManageTicket ? (
               <form action={changeTicketPriorityFromDashboard} className="mt-5 space-y-4 border-t border-slate-100 pt-5">
                 <input type="hidden" name="ticketId" value={ticket.id} />
                 <label className="block text-sm font-semibold text-slate-700">
@@ -563,9 +566,13 @@ export default async function TicketDetailPage({
                   Save priority
                 </button>
               </form>
-            ) : (
+            ) : ticket.status === TicketStatus.CLOSED ? (
               <p className="mt-5 border-t border-slate-100 pt-5 text-sm font-semibold text-slate-500">
                 Priority is read-only because this ticket is closed.
+              </p>
+            ) : (
+              <p className="mt-5 border-t border-slate-100 pt-5 text-sm font-semibold text-slate-500">
+                Manager permission is required to change ticket priority.
               </p>
             )}
           </section>
@@ -639,6 +646,7 @@ export default async function TicketDetailPage({
               Manual reassignment resets the team alert to pending for the new owner.
             </p>
 
+            {canManageTicket ? (
             <form action={reassignTicketFromDashboard} className="mt-4 space-y-4">
               <input type="hidden" name="ticketId" value={ticket.id} />
               <label className="block text-sm font-semibold text-slate-700">
@@ -671,6 +679,11 @@ export default async function TicketDetailPage({
                 Save team assignment
               </button>
             </form>
+            ) : (
+              <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm font-semibold text-slate-500">
+                Manager permission is required to reassign a ticket.
+              </p>
+            )}
           </section>
         </aside>
       </div>

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import {
   NotificationStatus,
+  OperatorRole,
   TicketPriority,
   TicketStatus,
   TicketTeam,
@@ -13,6 +14,7 @@ import {
   type TicketTeam as TicketTeamValue,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { hasMinimumOperatorRole } from "@/lib/operator-roles.mjs";
 
 import { advanceTicketFromDashboard } from "./actions";
 import { requireOperationsOperator } from "./security";
@@ -138,9 +140,11 @@ export default async function OperationsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireOperationsOperator();
+  const operator = await requireOperationsOperator();
 
   const rawSearchParams = await searchParams;
+  const accessDenied = firstSearchValue(rawSearchParams.access) === "denied";
+  const canViewAnalytics = hasMinimumOperatorRole(operator.role, OperatorRole.MANAGER);
   const query = firstSearchValue(rawSearchParams.q).trim().slice(0, 100);
   const requestedStatus = firstSearchValue(rawSearchParams.status);
   const requestedTeam = firstSearchValue(rawSearchParams.team);
@@ -265,12 +269,14 @@ export default async function OperationsPage({
             >
               Review inbox
             </Link>
-            <Link
-              href="/operations/analytics"
-              className="rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-2.5 text-sm font-semibold text-indigo-100 transition hover:border-indigo-300 hover:bg-indigo-400/20"
-            >
-              View analytics
-            </Link>
+            {canViewAnalytics ? (
+              <Link
+                href="/operations/analytics"
+                className="rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-2.5 text-sm font-semibold text-indigo-100 transition hover:border-indigo-300 hover:bg-indigo-400/20"
+              >
+                View analytics
+              </Link>
+            ) : null}
             <Link
               href="/feedback"
               className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm font-semibold transition hover:border-indigo-400 hover:bg-slate-700"
@@ -301,6 +307,11 @@ export default async function OperationsPage({
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {accessDenied ? (
+          <div role="alert" className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-900">
+            Manager permission is required to view operations analytics.
+          </div>
+        ) : null}
         <section aria-label="Ticket summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard label="Total tickets" value={totalTickets} helper="All recorded work" accent="indigo" />
           <MetricCard label="Open" value={statusCounts.OPEN ?? 0} helper="Waiting to start" accent="amber" />
