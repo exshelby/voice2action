@@ -122,6 +122,10 @@ A local interactive command previews and explicitly confirms one forward status 
 
 Reviewed ticket categories map deterministically to an operational team under a versioned local rule set. New tickets save their team atomically during creation. A local confirmation command assigns tickets created before this feature, and its conditional update prevents concurrent duplicate assignment. Assignment data includes the selected team, rule version, and timestamp. Unknown categories cannot be assigned silently; the reviewed `OTHER` category routes to General Support. This slice does not notify the team or support manual reassignment.
 
+## Phase 2 local notification-outbox slice
+
+A PostgreSQL trigger creates one `PENDING` notification whenever a ticket first receives a team. Notification creation occurs in the same transaction as ticket creation or assignment, and a unique ticket-and-event constraint prevents duplicate assignment notifications. The migration backfills already-assigned tickets. A read-only local command lists pending messages without pretending they were externally delivered. Delivery attempts, errors, and sent timestamps are modeled for a later email or chat worker.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "notification:list": "node scripts/list-notifications.mjs",
     "transcribe:once": "node scripts/transcribe-feedback.mjs --once",
     "transcribe:watch": "node scripts/transcribe-feedback.mjs --watch",
     "transcribe:show": "node scripts/show-transcript.mjs",

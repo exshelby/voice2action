@@ -81,6 +81,10 @@ An operator can explicitly confirm moving a local ticket through `OPEN`, `IN_PRO
 
 Each reviewed category maps to one operational team under a versioned local rule set. New tickets store their assigned team during creation, while an operator can preview and confirm assignment for older unassigned tickets. The assignment timestamp and rule version make the decision auditable. Unknown categories must not be silently routed. This slice does not send notifications or support manual reassignment.
 
+## Phase 2: seventh slice — local notification outbox
+
+Assigning a ticket creates exactly one pending notification for its team in the same database transaction. Existing assigned tickets receive a backfilled notification. An operator can list pending notifications locally without marking them as delivered. The queue stores delivery state, attempt count, failure details, and sent time for a future email or chat sender. This slice does not contact an external service.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

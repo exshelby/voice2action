@@ -40,7 +40,7 @@ The first milestone is one real voice recording successfully moving from the cus
 
 ## Project status
 
-Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, review-gated local ticket creation, rule-based team assignment, and a local ticket status workflow. Notifications are still future work.
+Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, review-gated local ticket creation, rule-based team assignment, a local notification outbox, and a local ticket status workflow. External notification delivery is still future work.
 
 ## Local transcription setup (Windows)
 
@@ -98,6 +98,7 @@ npm run ticket:create -- <feedback ID>
 npm run ticket:assign -- TKT-000001
 npm run ticket:show -- TKT-000001
 npm run ticket:update -- TKT-000001
+npm run notification:list
 ```
 
-The create command previews the ticket and requires typing `yes`. New tickets start with status `Open` and are assigned automatically from their reviewed category. Use `ticket:assign` for an older unassigned ticket; it previews the rule-based recommendation and requires confirmation. Delivery issues route to Logistics, product quality to Quality, billing to Finance, customer service to Customer Support, app issues to Technical Support, suggestions and compliments to Customer Experience, and unclear cases to General Support. Each confirmed `ticket:update` run advances exactly one step: `Open` → `In Progress` → `Resolved` → `Closed`. This prevents accidentally skipping a stage. Closed tickets cannot advance further. Notifications and an operations dashboard remain future work.
+The create command previews the ticket and requires typing `yes`. New tickets start with status `Open` and are assigned automatically from their reviewed category. Use `ticket:assign` for an older unassigned ticket; it previews the rule-based recommendation and requires confirmation. Delivery issues route to Logistics, product quality to Quality, billing to Finance, customer service to Customer Support, app issues to Technical Support, suggestions and compliments to Customer Experience, and unclear cases to General Support. Team assignment atomically creates one pending notification in a local database outbox. `notification:list` shows up to 100 pending messages without marking them as sent. A future sender can safely deliver these messages through email or chat and update their delivery status. Each confirmed `ticket:update` run advances exactly one step: `Open` → `In Progress` → `Resolved` → `Closed`. This prevents accidentally skipping a stage. Closed tickets cannot advance further. External delivery and an operations dashboard remain future work.
