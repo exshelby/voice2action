@@ -38,6 +38,8 @@ The first milestone is one real voice recording successfully moving from the cus
 - Metabase
 - Docker
 
+Local development and CI require Node.js 22.13 or newer.
+
 ## Project status
 
 Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, review-gated local ticket creation, rule-based team assignment, a durable notification outbox with an optional webhook delivery worker, a local ticket status workflow, and authenticated operator attribution.
