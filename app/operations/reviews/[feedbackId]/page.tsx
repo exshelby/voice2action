@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
 import { requireLocalOperationsRequest } from "../../security";
-import { saveFeedbackReviewFromDashboard } from "../actions";
+import { createTicketFromReviewDashboard, saveFeedbackReviewFromDashboard } from "../actions";
+import { TEAM_LABELS, teamForReviewCategory } from "../ticket-routing";
 
 export const metadata = {
   title: "Review feedback | Voice2Action",
@@ -83,6 +84,17 @@ export default async function ReviewFeedbackPage({
   const currentSummary =
     feedback.reviewedSummary ?? feedback.classificationSummary ?? feedback.originalTranscript.slice(0, 300);
   const ticketNumber = feedback.ticket?.ticketNumber ?? null;
+  const recommendedTeam = feedback.reviewedCategory
+    ? teamForReviewCategory(feedback.reviewedCategory)
+    : null;
+  const reviewReady = Boolean(
+    feedback.reviewedAt &&
+      feedback.reviewedTranscript &&
+      feedback.reviewedCategory &&
+      feedback.reviewedSummary &&
+      feedback.reviewRevision > 0 &&
+      recommendedTeam,
+  );
 
   return (
     <main className="min-h-screen bg-[#f4f7fb] text-slate-950">
@@ -163,71 +175,112 @@ export default async function ReviewFeedbackPage({
               </Link>
             </section>
           ) : (
-            <section className="rounded-2xl border border-violet-200 bg-white p-5 shadow-sm sm:p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-600">Human correction</p>
-              <h2 className="mt-1 text-xl font-bold">Review before ticket creation</h2>
+            <>
+              <section className="rounded-2xl border border-violet-200 bg-white p-5 shadow-sm sm:p-6">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-600">Human correction</p>
+                <h2 className="mt-1 text-xl font-bold">Review before ticket creation</h2>
 
-              <form action={saveFeedbackReviewFromDashboard} className="mt-6 space-y-5">
-                <input type="hidden" name="feedbackId" value={feedback.id} />
-                <input type="hidden" name="expectedRevision" value={feedback.reviewRevision} />
+                <form action={saveFeedbackReviewFromDashboard} className="mt-6 space-y-5">
+                  <input type="hidden" name="feedbackId" value={feedback.id} />
+                  <input type="hidden" name="expectedRevision" value={feedback.reviewRevision} />
 
-                <label className="block text-sm font-semibold text-slate-700">
-                  Corrected wording
-                  <textarea
-                    name="transcript"
-                    required
-                    maxLength={20_000}
-                    rows={7}
-                    defaultValue={currentTranscript}
-                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
-                  />
-                </label>
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Corrected wording
+                    <textarea
+                      name="transcript"
+                      required
+                      maxLength={20_000}
+                      rows={7}
+                      defaultValue={currentTranscript}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                    />
+                  </label>
 
-                <label className="block text-sm font-semibold text-slate-700">
-                  Reviewed category
-                  <select
-                    name="category"
-                    required
-                    defaultValue={currentCategory}
-                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Reviewed category
+                    <select
+                      name="category"
+                      required
+                      defaultValue={currentCategory}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                    >
+                      {CATEGORY_OPTIONS.map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Short description
+                    <input
+                      type="text"
+                      name="summary"
+                      required
+                      maxLength={300}
+                      defaultValue={currentSummary}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                    />
+                  </label>
+
+                  <label className="flex items-start gap-2 rounded-xl bg-violet-50 p-4 text-sm text-violet-950">
+                    <input
+                      type="checkbox"
+                      name="confirmed"
+                      value="yes"
+                      required
+                      className="mt-0.5 size-4 rounded border-violet-300 accent-violet-600"
+                    />
+                    I compared this correction with the original transcript and confirm it is ready for ticket creation.
+                  </label>
+
+                  <button
+                    type="submit"
+                    className="w-full rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
                   >
-                    {CATEGORY_OPTIONS.map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                </label>
+                    Save human review
+                  </button>
+                </form>
+              </section>
 
-                <label className="block text-sm font-semibold text-slate-700">
-                  Short description
-                  <input
-                    type="text"
-                    name="summary"
-                    required
-                    maxLength={300}
-                    defaultValue={currentSummary}
-                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
-                  />
-                </label>
+              {reviewReady && recommendedTeam ? (
+                <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm sm:p-6">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">Ticket preview</p>
+                  <h2 className="mt-1 text-xl font-bold text-emerald-950">Create operational work</h2>
+                  <p className="mt-2 text-sm leading-6 text-emerald-800">
+                    This uses the saved review below. Save any edits above before creating the ticket.
+                  </p>
 
-                <label className="flex items-start gap-2 rounded-xl bg-violet-50 p-4 text-sm text-violet-950">
-                  <input
-                    type="checkbox"
-                    name="confirmed"
-                    value="yes"
-                    required
-                    className="mt-0.5 size-4 rounded border-violet-300 accent-violet-600"
-                  />
-                  I compared this correction with the original transcript and confirm it is ready for ticket creation.
-                </label>
+                  <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <Detail label="Title" value={feedback.reviewedSummary ?? ""} />
+                    <Detail label="Category" value={CATEGORY_LABELS[feedback.reviewedCategory ?? ""] ?? ""} />
+                    <Detail label="Assigned team" value={TEAM_LABELS[recommendedTeam]} />
+                    <Detail label="Starting status" value="Open" />
+                    <Detail label="Source revision" value={String(feedback.reviewRevision)} />
+                  </dl>
 
-                <button
-                  type="submit"
-                  className="w-full rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
-                >
-                  Save human review
-                </button>
-              </form>
-            </section>
+                  <form action={createTicketFromReviewDashboard} className="mt-5 border-t border-emerald-200 pt-5">
+                    <input type="hidden" name="feedbackId" value={feedback.id} />
+                    <input type="hidden" name="expectedRevision" value={feedback.reviewRevision} />
+                    <label className="flex items-start gap-2 text-sm text-emerald-950">
+                      <input
+                        type="checkbox"
+                        name="confirmed"
+                        value="yes"
+                        required
+                        className="mt-0.5 size-4 rounded border-emerald-300 accent-emerald-700"
+                      />
+                      Create one ticket from review revision {feedback.reviewRevision} and notify {TEAM_LABELS[recommendedTeam]}.
+                    </label>
+                    <button
+                      type="submit"
+                      className="mt-4 w-full rounded-xl bg-emerald-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                    >
+                      Create ticket
+                    </button>
+                  </form>
+                </section>
+              ) : null}
+            </>
           )}
         </div>
 

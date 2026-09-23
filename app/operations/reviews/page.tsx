@@ -236,7 +236,7 @@ export default async function ReviewQueuePage({
                         href={`/operations/reviews/${feedback.id}`}
                         className="mt-3 inline-flex text-xs font-bold text-indigo-600 hover:text-indigo-800"
                       >
-                        Inspect review revision {feedback.reviewRevision} →
+                        Inspect and create from revision {feedback.reviewRevision} →
                       </Link>
                     </article>
                   ))

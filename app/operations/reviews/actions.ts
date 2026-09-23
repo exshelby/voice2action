@@ -1,11 +1,14 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 
 import { requireLocalOperationsRequest } from "../security";
+import { ASSIGNMENT_RULE_VERSION, routingRulesJson } from "./ticket-routing";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -80,4 +83,70 @@ export async function saveFeedbackReviewFromDashboard(formData: FormData) {
   revalidatePath(`/operations/reviews/${feedbackId}`);
   revalidatePath("/operations");
   redirect("/operations/reviews?saved=1");
+}
+
+export async function createTicketFromReviewDashboard(formData: FormData) {
+  await requireLocalOperationsRequest();
+
+  const feedbackId = String(formData.get("feedbackId") ?? "");
+  const expectedRevision = Number(formData.get("expectedRevision"));
+  const confirmed = formData.get("confirmed") === "yes";
+
+  if (!UUID_PATTERN.test(feedbackId)) {
+    throw new Error("A valid feedback ID is required.");
+  }
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) {
+    throw new Error("A completed review revision is required.");
+  }
+  if (!confirmed) {
+    throw new Error("Confirm ticket creation before continuing.");
+  }
+
+  const ticketId = randomUUID();
+  const rules = routingRulesJson();
+  const created = await prisma.$queryRaw<Array<{ ticket_number: number }>>`
+    INSERT INTO ticket (
+      id, feedback_id, title, description, category,
+      source_review_revision, source_reviewed_at, status,
+      assigned_team, assignment_rule_version, assigned_at, updated_at
+    )
+    SELECT ${ticketId}::uuid, id, reviewed_summary, reviewed_transcript, reviewed_category,
+           review_revision, reviewed_at, 'OPEN',
+           jsonb_extract_path_text(${rules}::jsonb, reviewed_category)::ticket_team,
+           ${ASSIGNMENT_RULE_VERSION}, NOW(), NOW()
+    FROM feedback
+    WHERE id = ${feedbackId}::uuid
+      AND review_revision = ${expectedRevision}
+      AND reviewed_at IS NOT NULL
+      AND reviewed_transcript IS NOT NULL
+      AND reviewed_category IS NOT NULL
+      AND reviewed_summary IS NOT NULL
+      AND jsonb_exists(${rules}::jsonb, reviewed_category)
+    ON CONFLICT (feedback_id) DO NOTHING
+    RETURNING ticket_number
+  `;
+
+  let ticketNumber: number | undefined = created[0]?.ticket_number;
+
+  if (!ticketNumber) {
+    const existing = await prisma.ticket.findUnique({
+      where: { feedbackId },
+      select: { ticketNumber: true },
+    });
+
+    ticketNumber = existing?.ticketNumber;
+  }
+
+  if (!ticketNumber) {
+    throw new Error(
+      "This review changed or is incomplete. Return to the review queue, inspect the latest version, and try again.",
+    );
+  }
+
+  revalidatePath("/operations/reviews");
+  revalidatePath(`/operations/reviews/${feedbackId}`);
+  revalidatePath("/operations");
+  revalidatePath("/operations/analytics");
+  revalidatePath(`/operations/tickets/${ticketNumber}`);
+  redirect(`/operations/tickets/${ticketNumber}`);
 }

@@ -105,6 +105,10 @@ A local manager can view lifecycle totals, ownership distribution, category mix,
 
 A local operator can see transcribed feedback that still needs human review and open a browser form to correct the wording, category, and short description. The original transcript and classifier output remain read-only, while corrected values are stored in the existing reviewed fields with an incremented revision. A stale form cannot overwrite a newer review, and browser editing is locked after a ticket snapshots the review. The inbox also shows reviewed feedback that is ready for ticket creation. The review workspace remains restricted to localhost; ticket creation continues as a separate explicitly confirmed step.
 
+## Phase 2: thirteenth slice — browser ticket creation
+
+After inspecting a completed review, a local operator can explicitly confirm creating its ticket in the browser. One conditional database statement snapshots the exact submitted review revision, applies the versioned category-to-team rule, and begins the ticket as `OPEN`. The existing assignment trigger queues the team notification in the same transaction. Concurrent or repeated submissions return the single existing ticket instead of creating duplicates. The action remains restricted to localhost and redirects to the full ticket record after success.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

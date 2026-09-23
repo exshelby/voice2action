@@ -146,6 +146,10 @@ A localhost-only server-rendered analytics route reads the 500 most recent ticke
 
 A localhost-only server-rendered review queue reads feedback that has an original transcript but no saved human review. It also shows completed reviews that have not yet produced a ticket. A dynamic review route displays the immutable transcript and classifier result beside a correction form. Its Server Action validates all submitted fields again, requires explicit confirmation, and conditionally updates the feedback row only when the submitted review revision still matches and no ticket exists. Successful saves increment the revision and revalidate the review and operations pages. Ticket creation remains a separate action so reviewing data never silently creates operational work.
 
+## Phase 2 browser-ticket-creation slice
+
+The review detail route previews the saved title, category, assigned team, starting status, and source revision before ticket creation. A localhost-only Server Action requires explicit confirmation and uses a conditional `INSERT ... SELECT` guarded by the submitted review revision. The statement copies only completed reviewed fields, resolves the assigned team through the same versioned rule map as the terminal workflow, and uses the feedback uniqueness constraint for idempotency. The existing PostgreSQL assignment trigger adds the notification outbox row in the same transaction. Repeated or concurrent requests resolve to the existing ticket and redirect to its detail page.
+
 ## Design rules
 
 - AI recommends; a human can review and override.
