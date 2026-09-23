@@ -2,6 +2,37 @@ import { randomUUID } from "node:crypto";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const NEXT_TICKET_STATUS = new Map([
+  ["OPEN", "IN_PROGRESS"],
+  ["IN_PROGRESS", "RESOLVED"],
+  ["RESOLVED", "CLOSED"],
+]);
+
+const TICKET_STATUS_LABELS = new Map([
+  ["OPEN", "Open"],
+  ["IN_PROGRESS", "In Progress"],
+  ["RESOLVED", "Resolved"],
+  ["CLOSED", "Closed"],
+]);
+
+export function ticketStatusLabel(status) {
+  const label = TICKET_STATUS_LABELS.get(status);
+
+  if (!label) {
+    throw new Error("The ticket status is invalid.");
+  }
+
+  return label;
+}
+
+export function nextTicketStatus(status) {
+  if (!TICKET_STATUS_LABELS.has(status)) {
+    throw new Error("The ticket status is invalid.");
+  }
+
+  return NEXT_TICKET_STATUS.get(status) ?? null;
+}
+
 export function formatTicketNumber(ticketNumber) {
   if (!Number.isSafeInteger(ticketNumber) || ticketNumber < 1) {
     throw new Error("The ticket number is invalid.");
@@ -110,4 +141,28 @@ export async function findTicket(client, reference) {
   }
 
   return result.rows[0] ?? null;
+}
+
+export async function advanceTicketStatus(client, ticket) {
+  const nextStatus = nextTicketStatus(ticket.status);
+
+  if (!nextStatus) {
+    throw new Error("This ticket is already Closed and cannot advance further.");
+  }
+
+  const updated = await client.query(
+    `UPDATE ticket
+     SET status = $2, updated_at = NOW()
+     WHERE id = $1 AND status = $3
+     RETURNING id, ticket_number, feedback_id, title, description,
+               category, source_review_revision, source_reviewed_at,
+               status, created_at, updated_at`,
+    [ticket.id, nextStatus, ticket.status],
+  );
+
+  if (updated.rowCount !== 1) {
+    throw new Error("This ticket changed while you were updating it. Run the command again to see its latest status.");
+  }
+
+  return updated.rows[0];
 }

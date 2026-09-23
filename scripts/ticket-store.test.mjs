@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 
-import { createTicket, findTicket, formatTicketNumber } from "./ticket-store.mjs";
+import {
+  advanceTicketStatus,
+  createTicket,
+  findTicket,
+  formatTicketNumber,
+  nextTicketStatus,
+  ticketStatusLabel,
+} from "./ticket-store.mjs";
 
 test("ticket numbers have a readable reference", () => {
   assert.equal(formatTicketNumber(1), "TKT-000001");
@@ -91,4 +98,53 @@ test("tickets can be found by readable reference", async () => {
 
   const ticket = await findTicket(client, "TKT-000012");
   assert.equal(ticket.ticket_number, 12);
+});
+
+test("ticket statuses advance one step in order", () => {
+  assert.equal(nextTicketStatus("OPEN"), "IN_PROGRESS");
+  assert.equal(nextTicketStatus("IN_PROGRESS"), "RESOLVED");
+  assert.equal(nextTicketStatus("RESOLVED"), "CLOSED");
+  assert.equal(nextTicketStatus("CLOSED"), null);
+  assert.equal(ticketStatusLabel("IN_PROGRESS"), "In Progress");
+  assert.throws(() => nextTicketStatus("UNKNOWN"), /invalid/);
+});
+
+test("ticket status updates use the current status as a concurrency guard", async () => {
+  const ticketId = randomUUID();
+  const queries = [];
+  const client = {
+    async query(sql, params) {
+      queries.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: [{ id: ticketId, ticket_number: 1, status: "IN_PROGRESS" }],
+      };
+    },
+  };
+
+  const updated = await advanceTicketStatus(client, { id: ticketId, status: "OPEN" });
+
+  assert.equal(updated.status, "IN_PROGRESS");
+  assert.match(queries[0].sql, /WHERE id = \$1 AND status = \$3/);
+  assert.deepEqual(queries[0].params, [ticketId, "IN_PROGRESS", "OPEN"]);
+});
+
+test("a stale ticket status cannot overwrite a newer change", async () => {
+  const client = {
+    async query() {
+      return { rowCount: 0, rows: [] };
+    },
+  };
+
+  await assert.rejects(
+    advanceTicketStatus(client, { id: randomUUID(), status: "OPEN" }),
+    /changed while you were updating/,
+  );
+});
+
+test("closed tickets cannot advance", async () => {
+  await assert.rejects(
+    advanceTicketStatus({ query: async () => assert.fail("database should not be called") }, { id: randomUUID(), status: "CLOSED" }),
+    /already Closed/,
+  );
 });

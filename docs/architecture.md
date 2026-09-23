@@ -114,6 +114,10 @@ A local-only interactive command loads one feedback record by ID and shows the o
 
 A local interactive command previews a ticket from reviewed feedback and requires explicit confirmation. Creation uses one atomic `INSERT ... SELECT` statement that succeeds only when all reviewed fields and a positive review revision exist. The ticket snapshots the reviewed title, description, category, review time, and revision. A unique database index on `feedback_id`, together with `ON CONFLICT DO NOTHING`, makes repeated or concurrent creation requests idempotent. Tickets receive a readable reference such as `TKT-000001` and start as `OPEN`. This slice has no public ticket API, assignment logic, notifications, or status-transition interface.
 
+## Phase 2 local ticket-status slice
+
+A local interactive command previews and explicitly confirms one forward status transition at a time: `OPEN` → `IN_PROGRESS` → `RESOLVED` → `CLOSED`. The database update includes the status that the operator originally saw, so a stale terminal cannot silently overwrite a concurrent change. Closed tickets cannot advance further. This initial workflow is local-only and intentionally does not support skipping stages or reopening tickets.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

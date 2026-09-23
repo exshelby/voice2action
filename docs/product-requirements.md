@@ -73,6 +73,10 @@ Before creating a ticket, a local operator reviews the transcript, category, and
 
 An operator can preview and explicitly confirm a ticket created from human-reviewed feedback. The ticket begins as `OPEN` and stores a snapshot of the reviewed title, description, category, review timestamp, and review revision. Feedback without a completed human review cannot create a ticket. A database uniqueness rule ensures that one feedback record cannot create duplicate tickets. Assignment, notifications, resolution workflow, and an operations dashboard are not included in this slice.
 
+## Phase 2: fifth slice — local ticket status workflow
+
+An operator can explicitly confirm moving a local ticket through `OPEN`, `IN_PROGRESS`, `RESOLVED`, and `CLOSED`, one step at a time. A stale update must not overwrite a status changed by another operator. This slice does not include assignment, notifications, reopening closed tickets, or an operations dashboard.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:
