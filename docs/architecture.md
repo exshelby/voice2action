@@ -130,6 +130,10 @@ A PostgreSQL trigger creates one `PENDING` notification whenever a ticket first 
 
 A server-rendered Next.js page reads tickets, status totals, team ownership, and pending notifications directly from PostgreSQL. Database credentials and raw records stay on the server. A Server Action advances tickets by one valid step, re-reads trusted database state, validates the ticket identifier, uses an optimistic status condition, and revalidates the dashboard. Both page and mutation are restricted to localhost. The browser form requires an explicit confirmation checkbox. This is a local operator tool, not a public authenticated administration surface.
 
+## Phase 2 ticket-detail and manual-controls slice
+
+A localhost-only dynamic route loads one ticket by its numeric reference and includes the linked feedback audit trail and notification history. Server Actions let an operator explicitly confirm a team reassignment or mark a pending notification as delivered. Reassignment uses a conditional ticket update inside a database transaction, marks the assignment as manual, and upserts the single assignment notification back to `PENDING` for the selected team. Notification delivery uses a conditional state update so a stale page cannot overwrite a concurrent queue change. The controls simulate local operational handling only; they do not send email or chat messages.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

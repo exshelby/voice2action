@@ -210,6 +210,13 @@ export default async function OperationsPage() {
                             <dd className="mt-1 font-semibold text-slate-700">{dateFormatter.format(ticket.updatedAt)}</dd>
                           </div>
                         </dl>
+
+                        <Link
+                          href={`/operations/tickets/${ticket.ticketNumber}`}
+                          className="mt-5 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700"
+                        >
+                          Open full ticket <span aria-hidden="true">→</span>
+                        </Link>
                       </div>
 
                       <div className="border-t border-slate-100 bg-slate-50/80 px-5 py-5 sm:px-6">
@@ -280,7 +287,12 @@ export default async function OperationsPage() {
                       <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600">{notification.message}</p>
                       <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
                         <span>{TEAM_LABELS[notification.team]}</span>
-                        <span>{ticketReference(notification.ticket.ticketNumber)}</span>
+                        <Link
+                          href={`/operations/tickets/${notification.ticket.ticketNumber}`}
+                          className="font-semibold text-indigo-600 hover:text-indigo-800"
+                        >
+                          {ticketReference(notification.ticket.ticketNumber)}
+                        </Link>
                       </div>
                     </article>
                   ))

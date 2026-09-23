@@ -89,6 +89,10 @@ Assigning a ticket creates exactly one pending notification for its team in the 
 
 A local operator can see ticket totals, recent ticket details, team assignments, lifecycle progress, and pending notification messages in one browser screen. The operator can explicitly confirm a one-step status advance. The server must re-read ticket state and prevent stale updates. Database access remains server-side, and the page is limited to localhost. Authentication, public deployment, filters, pagination, and manual reassignment remain future work.
 
+## Phase 2: ninth slice — ticket detail and manual operations controls
+
+A local operator can open a complete ticket record, compare the original model output with the saved human review, inspect notification history, and explicitly reassign the ticket to another operational team. Reassignment records a manual assignment, refreshes the existing assignment notification for the new owner, and prevents stale ownership updates. An operator can also confirm that a pending local notification was delivered. These controls remain restricted to localhost and do not contact an external email or chat service.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:
