@@ -138,6 +138,10 @@ A localhost-only dynamic route loads one ticket by its numeric reference and inc
 
 The operations page reads request-time URL search parameters and validates each value against the known ticket status, team, and category sets. A free-text query searches ticket title and description case-insensitively and recognizes readable references such as `TKT-000001`. Prisma receives only validated filters. A separate count query reports total matches while the result query remains capped at 50 recent tickets. Summary metrics and the pending-notification queue remain global operational context rather than changing with the ticket filters.
 
+## Phase 2 local operations-analytics slice
+
+A localhost-only server-rendered analytics route reads the 500 most recent tickets from PostgreSQL and aggregates them in application memory. It reports lifecycle distribution, assigned-team distribution, category mix, completion rate, and age buckets for tickets still open or in progress. A conservative recurring-issue detector normalizes ticket titles and groups them with their category inside a rolling 30-day window; a group is surfaced only at two or more occurrences. The page uses semantic HTML and CSS bars, so no client charting library or additional browser JavaScript is required.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

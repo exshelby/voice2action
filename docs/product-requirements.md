@@ -97,6 +97,10 @@ A local operator can open a complete ticket record, compare the original model o
 
 A local operator can search tickets by readable ticket reference, title, or description and narrow the result set by status, assigned team, and category. Filters are represented in the URL so the same local view can be refreshed or bookmarked. The server validates query values before building the database query, shows the number of matching tickets, and provides an explicit way to clear all active filters. Global summary totals and the notification outbox remain visible while the ticket list is filtered.
 
+## Phase 2: eleventh slice — local operations analytics
+
+A local manager can view lifecycle totals, ownership distribution, category mix, completion rate, and aging buckets for active tickets. The analytics page detects a recurring issue only after at least two tickets within 30 days share the same normalized title and category. Analytics reads at most the 500 most recent tickets, stays restricted to localhost, and uses server-rendered summaries without exposing raw database access to the browser. The initial recurring detector is deterministic and intentionally conservative; semantic similarity and scheduled reporting remain future work.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

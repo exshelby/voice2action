@@ -174,12 +174,20 @@ export default async function OperationsPage({
             </span>
           </Link>
 
-          <Link
-            href="/feedback"
-            className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm font-semibold transition hover:border-indigo-400 hover:bg-slate-700"
-          >
-            Capture feedback
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/operations/analytics"
+              className="rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-2.5 text-sm font-semibold text-indigo-100 transition hover:border-indigo-300 hover:bg-indigo-400/20"
+            >
+              View analytics
+            </Link>
+            <Link
+              href="/feedback"
+              className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm font-semibold transition hover:border-indigo-400 hover:bg-slate-700"
+            >
+              Capture feedback
+            </Link>
+          </div>
         </div>
 
         <div className="mx-auto max-w-7xl px-4 pb-10 pt-6 sm:px-6 lg:px-8">
