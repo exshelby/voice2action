@@ -8,6 +8,7 @@ import readline from "node:readline/promises";
 import pg from "pg";
 
 import { categoryLabel } from "./feedback-categories.mjs";
+import { teamForCategory, teamLabel } from "./ticket-routing.mjs";
 import { createTicket, formatTicketNumber, loadTicketSource } from "./ticket-store.mjs";
 
 async function main() {
@@ -44,6 +45,7 @@ async function main() {
     console.log(`Feedback: ${feedbackId}`);
     console.log(`Title: ${source.reviewed_summary}`);
     console.log(`Category: ${categoryLabel(source.reviewed_category)}`);
+    console.log(`Assigned team: ${teamLabel(teamForCategory(source.reviewed_category))}`);
     console.log(`Description: ${source.reviewed_transcript}`);
     console.log("Status: Open");
     console.log(`Source review revision: ${source.review_revision}`);
@@ -65,7 +67,7 @@ async function main() {
     const reference = formatTicketNumber(result.ticket.ticket_number);
 
     if (result.created) {
-      console.log(`${reference} created with status Open.`);
+      console.log(`${reference} created with status Open and assigned to ${teamLabel(result.ticket.assigned_team)}.`);
     } else {
       console.log(`${reference} already exists. No duplicate was created.`);
     }

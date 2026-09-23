@@ -118,6 +118,10 @@ A local interactive command previews a ticket from reviewed feedback and require
 
 A local interactive command previews and explicitly confirms one forward status transition at a time: `OPEN` → `IN_PROGRESS` → `RESOLVED` → `CLOSED`. The database update includes the status that the operator originally saw, so a stale terminal cannot silently overwrite a concurrent change. Closed tickets cannot advance further. This initial workflow is local-only and intentionally does not support skipping stages or reopening tickets.
 
+## Phase 2 rule-based team-assignment slice
+
+Reviewed ticket categories map deterministically to an operational team under a versioned local rule set. New tickets save their team atomically during creation. A local confirmation command assigns tickets created before this feature, and its conditional update prevents concurrent duplicate assignment. Assignment data includes the selected team, rule version, and timestamp. Unknown categories cannot be assigned silently; the reviewed `OTHER` category routes to General Support. This slice does not notify the team or support manual reassignment.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

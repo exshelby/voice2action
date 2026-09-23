@@ -77,6 +77,10 @@ An operator can preview and explicitly confirm a ticket created from human-revie
 
 An operator can explicitly confirm moving a local ticket through `OPEN`, `IN_PROGRESS`, `RESOLVED`, and `CLOSED`, one step at a time. A stale update must not overwrite a status changed by another operator. This slice does not include assignment, notifications, reopening closed tickets, or an operations dashboard.
 
+## Phase 2: sixth slice — rule-based team assignment
+
+Each reviewed category maps to one operational team under a versioned local rule set. New tickets store their assigned team during creation, while an operator can preview and confirm assignment for older unassigned tickets. The assignment timestamp and rule version make the decision auditable. Unknown categories must not be silently routed. This slice does not send notifications or support manual reassignment.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

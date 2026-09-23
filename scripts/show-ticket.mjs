@@ -3,6 +3,7 @@ import "dotenv/config";
 import pg from "pg";
 
 import { categoryLabel } from "./feedback-categories.mjs";
+import { teamLabel } from "./ticket-routing.mjs";
 import { findTicket, formatTicketNumber, ticketStatusLabel } from "./ticket-store.mjs";
 
 const reference = process.argv[2];
@@ -30,6 +31,7 @@ try {
     console.log(`Status: ${ticketStatusLabel(ticket.status)}`);
     console.log(`Title: ${ticket.title}`);
     console.log(`Category: ${categoryLabel(ticket.category)}`);
+    console.log(`Assigned team: ${ticket.assigned_team ? teamLabel(ticket.assigned_team) : "Unassigned"}`);
     console.log(`Description: ${ticket.description}`);
     console.log(`Feedback: ${ticket.feedback_id}`);
     console.log(`Source review revision: ${ticket.source_review_revision}`);

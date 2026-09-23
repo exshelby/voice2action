@@ -25,6 +25,18 @@ enum TicketStatus {
   @@map("ticket_status")
 }
 
+enum TicketTeam {
+  LOGISTICS
+  QUALITY
+  FINANCE
+  CUSTOMER_SUPPORT
+  TECHNICAL_SUPPORT
+  CUSTOMER_EXPERIENCE
+  GENERAL_SUPPORT
+
+  @@map("ticket_team")
+}
+
 model Feedback {
   id                        String         @id @default(uuid()) @db.Uuid
   createdAt                 DateTime       @default(now()) @map("created_at")
@@ -59,20 +71,24 @@ model Feedback {
 }
 
 model Ticket {
-  id                   String       @id @default(uuid()) @db.Uuid
-  ticketNumber         Int          @unique @default(autoincrement()) @map("ticket_number")
-  feedbackId           String       @unique @map("feedback_id") @db.Uuid
-  title                String
-  description          String       @db.Text
-  category             String
-  sourceReviewRevision Int          @map("source_review_revision")
-  sourceReviewedAt     DateTime     @map("source_reviewed_at")
-  status               TicketStatus @default(OPEN)
-  createdAt            DateTime     @default(now()) @map("created_at")
-  updatedAt            DateTime     @updatedAt @map("updated_at")
-  feedback             Feedback     @relation(fields: [feedbackId], references: [id], onDelete: Restrict)
+  id                    String       @id @default(uuid()) @db.Uuid
+  ticketNumber          Int          @unique @default(autoincrement()) @map("ticket_number")
+  feedbackId            String       @unique @map("feedback_id") @db.Uuid
+  title                 String
+  description           String       @db.Text
+  category              String
+  sourceReviewRevision  Int          @map("source_review_revision")
+  sourceReviewedAt      DateTime     @map("source_reviewed_at")
+  status                TicketStatus @default(OPEN)
+  assignedTeam          TicketTeam?  @map("assigned_team")
+  assignmentRuleVersion Int?         @map("assignment_rule_version")
+  assignedAt            DateTime?    @map("assigned_at")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+  feedback              Feedback     @relation(fields: [feedbackId], references: [id], onDelete: Restrict)
 
   @@index([status])
+  @@index([assignedTeam])
   @@index([createdAt])
   @@map("ticket")
 }

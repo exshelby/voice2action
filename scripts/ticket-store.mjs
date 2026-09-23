@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { ASSIGNMENT_RULE_VERSION, routingRulesJson, teamForCategory } from "./ticket-routing.mjs";
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const NEXT_TICKET_STATUS = new Map([
@@ -49,7 +51,8 @@ export async function loadTicketSource(client, feedbackId) {
   const result = await client.query(
     `SELECT f.id, f.reviewed_transcript, f.reviewed_category,
             f.reviewed_summary, f.reviewed_at, f.review_revision,
-            t.id AS ticket_id, t.ticket_number, t.status AS ticket_status
+            t.id AS ticket_id, t.ticket_number, t.status AS ticket_status,
+            t.assigned_team AS ticket_assigned_team
      FROM feedback f
      LEFT JOIN ticket t ON t.feedback_id = f.id
      WHERE f.id = $1`,
@@ -72,10 +75,12 @@ export async function createTicket(client, feedbackId, ticketId = randomUUID()) 
   const inserted = await client.query(
     `INSERT INTO ticket (
        id, feedback_id, title, description, category,
-       source_review_revision, source_reviewed_at, status, updated_at
+       source_review_revision, source_reviewed_at, status,
+       assigned_team, assignment_rule_version, assigned_at, updated_at
      )
      SELECT $2, id, reviewed_summary, reviewed_transcript, reviewed_category,
-            review_revision, reviewed_at, 'OPEN', NOW()
+            review_revision, reviewed_at, 'OPEN',
+            ($3::jsonb ->> reviewed_category)::ticket_team, $4, NOW(), NOW()
      FROM feedback
      WHERE id = $1
        AND reviewed_at IS NOT NULL
@@ -83,11 +88,13 @@ export async function createTicket(client, feedbackId, ticketId = randomUUID()) 
        AND reviewed_category IS NOT NULL
        AND reviewed_summary IS NOT NULL
        AND review_revision > 0
+       AND $3::jsonb ? reviewed_category
      ON CONFLICT (feedback_id) DO NOTHING
      RETURNING id, ticket_number, feedback_id, title, description,
                category, source_review_revision, source_reviewed_at,
-               status, created_at, updated_at`,
-    [feedbackId, ticketId],
+               status, assigned_team, assignment_rule_version, assigned_at,
+               created_at, updated_at`,
+    [feedbackId, ticketId, routingRulesJson(), ASSIGNMENT_RULE_VERSION],
   );
 
   if (inserted.rowCount === 1) {
@@ -100,7 +107,8 @@ export async function createTicket(client, feedbackId, ticketId = randomUUID()) 
     const existing = await client.query(
       `SELECT id, ticket_number, feedback_id, title, description,
               category, source_review_revision, source_reviewed_at,
-              status, created_at, updated_at
+              status, assigned_team, assignment_rule_version, assigned_at,
+              created_at, updated_at
        FROM ticket WHERE id = $1`,
       [source.ticket_id],
     );
@@ -124,7 +132,8 @@ export async function findTicket(client, reference) {
     result = await client.query(
       `SELECT id, ticket_number, feedback_id, title, description,
               category, source_review_revision, source_reviewed_at,
-              status, created_at, updated_at
+              status, assigned_team, assignment_rule_version, assigned_at,
+              created_at, updated_at
        FROM ticket WHERE ticket_number = $1`,
       [ticketNumber],
     );
@@ -132,7 +141,8 @@ export async function findTicket(client, reference) {
     result = await client.query(
       `SELECT id, ticket_number, feedback_id, title, description,
               category, source_review_revision, source_reviewed_at,
-              status, created_at, updated_at
+              status, assigned_team, assignment_rule_version, assigned_at,
+              created_at, updated_at
        FROM ticket WHERE id = $1 OR feedback_id = $1`,
       [reference],
     );
@@ -156,7 +166,8 @@ export async function advanceTicketStatus(client, ticket) {
      WHERE id = $1 AND status = $3
      RETURNING id, ticket_number, feedback_id, title, description,
                category, source_review_revision, source_reviewed_at,
-               status, created_at, updated_at`,
+               status, assigned_team, assignment_rule_version, assigned_at,
+               created_at, updated_at`,
     [ticket.id, nextStatus, ticket.status],
   );
 
@@ -165,4 +176,29 @@ export async function advanceTicketStatus(client, ticket) {
   }
 
   return updated.rows[0];
+}
+
+export async function assignTicket(client, ticket) {
+  if (ticket.assigned_team) {
+    return { assigned: false, ticket };
+  }
+
+  const team = teamForCategory(ticket.category);
+  const updated = await client.query(
+    `UPDATE ticket
+     SET assigned_team = $2, assignment_rule_version = $3,
+         assigned_at = NOW(), updated_at = NOW()
+     WHERE id = $1 AND assigned_team IS NULL
+     RETURNING id, ticket_number, feedback_id, title, description,
+               category, source_review_revision, source_reviewed_at,
+               status, assigned_team, assignment_rule_version, assigned_at,
+               created_at, updated_at`,
+    [ticket.id, team, ASSIGNMENT_RULE_VERSION],
+  );
+
+  if (updated.rowCount !== 1) {
+    throw new Error("This ticket changed while you were assigning it. Run the command again to see its latest team.");
+  }
+
+  return { assigned: true, ticket: updated.rows[0] };
 }

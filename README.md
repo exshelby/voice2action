@@ -40,7 +40,7 @@ The first milestone is one real voice recording successfully moving from the cus
 
 ## Project status
 
-Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, review-gated local ticket creation, and a local ticket status workflow. Team routing and notifications are still future work.
+Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, review-gated local ticket creation, rule-based team assignment, and a local ticket status workflow. Notifications are still future work.
 
 ## Local transcription setup (Windows)
 
@@ -95,8 +95,9 @@ A ticket can be created only after human review is complete. The ticket copies t
 
 ```powershell
 npm run ticket:create -- <feedback ID>
+npm run ticket:assign -- TKT-000001
 npm run ticket:show -- TKT-000001
 npm run ticket:update -- TKT-000001
 ```
 
-The create command previews the ticket and requires typing `yes`. New tickets start with status `Open`. Each confirmed `ticket:update` run advances exactly one step: `Open` → `In Progress` → `Resolved` → `Closed`. This prevents accidentally skipping a stage. Closed tickets cannot advance further. This slice stores, displays, and updates tickets locally; assignment, notifications, and an operations dashboard remain future work.
+The create command previews the ticket and requires typing `yes`. New tickets start with status `Open` and are assigned automatically from their reviewed category. Use `ticket:assign` for an older unassigned ticket; it previews the rule-based recommendation and requires confirmation. Delivery issues route to Logistics, product quality to Quality, billing to Finance, customer service to Customer Support, app issues to Technical Support, suggestions and compliments to Customer Experience, and unclear cases to General Support. Each confirmed `ticket:update` run advances exactly one step: `Open` → `In Progress` → `Resolved` → `Closed`. This prevents accidentally skipping a stage. Closed tickets cannot advance further. Notifications and an operations dashboard remain future work.

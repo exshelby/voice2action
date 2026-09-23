@@ -4,12 +4,14 @@ import test from "node:test";
 
 import {
   advanceTicketStatus,
+  assignTicket,
   createTicket,
   findTicket,
   formatTicketNumber,
   nextTicketStatus,
   ticketStatusLabel,
 } from "./ticket-store.mjs";
+import { teamForCategory, teamLabel } from "./ticket-routing.mjs";
 
 test("ticket numbers have a readable reference", () => {
   assert.equal(formatTicketNumber(1), "TKT-000001");
@@ -35,6 +37,7 @@ test("ticket creation copies only human-reviewed fields", async () => {
           category: "DELIVERY_PROBLEM",
           source_review_revision: 1,
           status: "OPEN",
+          assigned_team: "LOGISTICS",
         }],
       };
     },
@@ -46,7 +49,8 @@ test("ticket creation copies only human-reviewed fields", async () => {
   assert.match(queries[0].sql, /reviewed_summary, reviewed_transcript, reviewed_category/);
   assert.match(queries[0].sql, /reviewed_at IS NOT NULL/);
   assert.match(queries[0].sql, /ON CONFLICT \(feedback_id\) DO NOTHING/);
-  assert.deepEqual(queries[0].params, [feedbackId, ticketId]);
+  assert.equal(JSON.parse(queries[0].params[2]).DELIVERY_PROBLEM, "LOGISTICS");
+  assert.equal(queries[0].params[3], 1);
 });
 
 test("a second request returns the existing ticket instead of duplicating it", async () => {
@@ -147,4 +151,49 @@ test("closed tickets cannot advance", async () => {
     advanceTicketStatus({ query: async () => assert.fail("database should not be called") }, { id: randomUUID(), status: "CLOSED" }),
     /already Closed/,
   );
+});
+
+test("every reviewed category has a team routing rule", () => {
+  assert.equal(teamForCategory("DELIVERY_DELAY"), "LOGISTICS");
+  assert.equal(teamForCategory("DELIVERY_PROBLEM"), "LOGISTICS");
+  assert.equal(teamForCategory("PRODUCT_QUALITY"), "QUALITY");
+  assert.equal(teamForCategory("BILLING_PAYMENT"), "FINANCE");
+  assert.equal(teamForCategory("CUSTOMER_SERVICE"), "CUSTOMER_SUPPORT");
+  assert.equal(teamForCategory("APP_TECHNICAL"), "TECHNICAL_SUPPORT");
+  assert.equal(teamForCategory("SUGGESTION"), "CUSTOMER_EXPERIENCE");
+  assert.equal(teamForCategory("COMPLIMENT"), "CUSTOMER_EXPERIENCE");
+  assert.equal(teamForCategory("OTHER"), "GENERAL_SUPPORT");
+  assert.equal(teamLabel("TECHNICAL_SUPPORT"), "Technical Support");
+  assert.throws(() => teamForCategory("UNKNOWN"), /no routing rule/);
+});
+
+test("an unassigned ticket can be assigned once", async () => {
+  const ticketId = randomUUID();
+  const queries = [];
+  const client = {
+    async query(sql, params) {
+      queries.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: [{ id: ticketId, ticket_number: 1, category: "DELIVERY_PROBLEM", assigned_team: "LOGISTICS" }],
+      };
+    },
+  };
+
+  const result = await assignTicket(client, { id: ticketId, category: "DELIVERY_PROBLEM", assigned_team: null });
+
+  assert.equal(result.assigned, true);
+  assert.equal(result.ticket.assigned_team, "LOGISTICS");
+  assert.match(queries[0].sql, /assigned_team IS NULL/);
+  assert.deepEqual(queries[0].params, [ticketId, "LOGISTICS", 1]);
+});
+
+test("an already assigned ticket is returned without another database update", async () => {
+  const ticket = { id: randomUUID(), category: "DELIVERY_PROBLEM", assigned_team: "LOGISTICS" };
+  const client = { query: async () => assert.fail("database should not be called") };
+
+  const result = await assignTicket(client, ticket);
+
+  assert.equal(result.assigned, false);
+  assert.equal(result.ticket, ticket);
 });
