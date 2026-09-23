@@ -101,6 +101,10 @@ A local operator can search tickets by readable ticket reference, title, or desc
 
 A local manager can view lifecycle totals, ownership distribution, category mix, completion rate, and aging buckets for active tickets. The analytics page detects a recurring issue only after at least two tickets within 30 days share the same normalized title and category. Analytics reads at most the 500 most recent tickets, stays restricted to localhost, and uses server-rendered summaries without exposing raw database access to the browser. The initial recurring detector is deterministic and intentionally conservative; semantic similarity and scheduled reporting remain future work.
 
+## Phase 2: twelfth slice — browser-based human review inbox
+
+A local operator can see transcribed feedback that still needs human review and open a browser form to correct the wording, category, and short description. The original transcript and classifier output remain read-only, while corrected values are stored in the existing reviewed fields with an incremented revision. A stale form cannot overwrite a newer review, and browser editing is locked after a ticket snapshots the review. The inbox also shows reviewed feedback that is ready for ticket creation. The review workspace remains restricted to localhost; ticket creation continues as a separate explicitly confirmed step.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

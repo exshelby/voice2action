@@ -142,6 +142,10 @@ The operations page reads request-time URL search parameters and validates each 
 
 A localhost-only server-rendered analytics route reads the 500 most recent tickets from PostgreSQL and aggregates them in application memory. It reports lifecycle distribution, assigned-team distribution, category mix, completion rate, and age buckets for tickets still open or in progress. A conservative recurring-issue detector normalizes ticket titles and groups them with their category inside a rolling 30-day window; a group is surfaced only at two or more occurrences. The page uses semantic HTML and CSS bars, so no client charting library or additional browser JavaScript is required.
 
+## Phase 2 browser-review-inbox slice
+
+A localhost-only server-rendered review queue reads feedback that has an original transcript but no saved human review. It also shows completed reviews that have not yet produced a ticket. A dynamic review route displays the immutable transcript and classifier result beside a correction form. Its Server Action validates all submitted fields again, requires explicit confirmation, and conditionally updates the feedback row only when the submitted review revision still matches and no ticket exists. Successful saves increment the revision and revalidate the review and operations pages. Ticket creation remains a separate action so reviewing data never silently creates operational work.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

@@ -174,7 +174,13 @@ export default async function OperationsPage({
             </span>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Link
+              href="/operations/reviews"
+              className="rounded-xl border border-violet-400/40 bg-violet-400/10 px-4 py-2.5 text-sm font-semibold text-violet-100 transition hover:border-violet-300 hover:bg-violet-400/20"
+            >
+              Review inbox
+            </Link>
             <Link
               href="/operations/analytics"
               className="rounded-xl border border-indigo-400/40 bg-indigo-400/10 px-4 py-2.5 text-sm font-semibold text-indigo-100 transition hover:border-indigo-300 hover:bg-indigo-400/20"
