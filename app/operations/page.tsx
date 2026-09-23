@@ -1,10 +1,13 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import {
   NotificationStatus,
   TicketStatus,
+  TicketTeam,
+  type Prisma,
   type TicketStatus as TicketStatusValue,
-  type TicketTeam,
+  type TicketTeam as TicketTeamValue,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
@@ -37,7 +40,7 @@ const STATUS_STYLES: Record<TicketStatusValue, string> = {
   CLOSED: "border-slate-200 bg-slate-100 text-slate-600",
 };
 
-const TEAM_LABELS: Record<TicketTeam, string> = {
+const TEAM_LABELS: Record<TicketTeamValue, string> = {
   LOGISTICS: "Logistics",
   QUALITY: "Quality",
   FINANCE: "Finance",
@@ -59,6 +62,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   OTHER: "Other / needs review",
 };
 
+const STATUS_VALUES = new Set<TicketStatusValue>(Object.values(TicketStatus));
+const TEAM_VALUES = new Set<TicketTeamValue>(Object.values(TicketTeam));
+const CATEGORY_VALUES = new Set(Object.keys(CATEGORY_LABELS));
+
 const dateFormatter = new Intl.DateTimeFormat("en-NG", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -79,14 +86,63 @@ function nextStatusLabel(status: TicketStatusValue) {
   return next ? STATUS_LABELS[next] : null;
 }
 
-export default async function OperationsPage() {
+function firstSearchValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+function ticketNumberFromSearch(query: string) {
+  const match = query.match(/^(?:TKT-)?0*([1-9]\d*)$/i);
+
+  if (!match) {
+    return null;
+  }
+
+  const ticketNumber = Number(match[1]);
+  return Number.isSafeInteger(ticketNumber) ? ticketNumber : null;
+}
+
+export default async function OperationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireLocalOperationsRequest();
 
-  const [tickets, pendingNotifications, statusGroups] = await Promise.all([
+  const rawSearchParams = await searchParams;
+  const query = firstSearchValue(rawSearchParams.q).trim().slice(0, 100);
+  const requestedStatus = firstSearchValue(rawSearchParams.status);
+  const requestedTeam = firstSearchValue(rawSearchParams.team);
+  const requestedCategory = firstSearchValue(rawSearchParams.category);
+  const status = STATUS_VALUES.has(requestedStatus as TicketStatusValue)
+    ? (requestedStatus as TicketStatusValue)
+    : null;
+  const team = TEAM_VALUES.has(requestedTeam as TicketTeamValue)
+    ? (requestedTeam as TicketTeamValue)
+    : null;
+  const category = CATEGORY_VALUES.has(requestedCategory) ? requestedCategory : null;
+  const searchedTicketNumber = ticketNumberFromSearch(query);
+  const searchConditions: Prisma.TicketWhereInput[] = query
+    ? [
+        { title: { contains: query, mode: "insensitive" } },
+        { description: { contains: query, mode: "insensitive" } },
+        ...(searchedTicketNumber === null ? [] : [{ ticketNumber: searchedTicketNumber }]),
+      ]
+    : [];
+  const ticketWhere: Prisma.TicketWhereInput = {
+    ...(status ? { status } : {}),
+    ...(team ? { assignedTeam: team } : {}),
+    ...(category ? { category } : {}),
+    ...(searchConditions.length ? { OR: searchConditions } : {}),
+  };
+  const activeFilterCount = [query, status, team, category].filter(Boolean).length;
+
+  const [tickets, matchingTicketCount, pendingNotifications, statusGroups] = await Promise.all([
     prisma.ticket.findMany({
+      where: ticketWhere,
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
+    prisma.ticket.count({ where: ticketWhere }),
     prisma.notification.findMany({
       where: { status: NotificationStatus.PENDING },
       include: { ticket: { select: { ticketNumber: true } } },
@@ -154,6 +210,56 @@ export default async function OperationsPage() {
           <MetricCard label="Pending alerts" value={pendingNotifications.length} helper="Ready for delivery" accent="emerald" />
         </section>
 
+        <section aria-labelledby="ticket-filters-heading" className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Find operational work</p>
+              <h2 id="ticket-filters-heading" className="mt-1 text-xl font-bold">Search and filter tickets</h2>
+            </div>
+            {activeFilterCount > 0 ? (
+              <Link href="/operations" className="text-sm font-bold text-indigo-600 hover:text-indigo-800">
+                Clear {activeFilterCount} {activeFilterCount === 1 ? "filter" : "filters"}
+              </Link>
+            ) : null}
+          </div>
+
+          <form action="/operations" method="get" className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.5fr)_1fr_1fr_1fr_auto] xl:items-end">
+            <label className="block text-sm font-semibold text-slate-700">
+              Search
+              <input
+                type="search"
+                name="q"
+                defaultValue={query}
+                maxLength={100}
+                placeholder="Title, description, or TKT-000001"
+                className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              />
+            </label>
+
+            <FilterSelect name="status" label="Status" allLabel="All statuses" value={status ?? ""}>
+              {STATUS_STEPS.map((option) => (
+                <option key={option} value={option}>{STATUS_LABELS[option]}</option>
+              ))}
+            </FilterSelect>
+
+            <FilterSelect name="team" label="Team" value={team ?? ""}>
+              {Object.values(TicketTeam).map((option) => (
+                <option key={option} value={option}>{TEAM_LABELS[option]}</option>
+              ))}
+            </FilterSelect>
+
+            <FilterSelect name="category" label="Category" allLabel="All categories" value={category ?? ""}>
+              {Object.entries(CATEGORY_LABELS).map(([option, label]) => (
+                <option key={option} value={option}>{label}</option>
+              ))}
+            </FilterSelect>
+
+            <button type="submit" className="h-[42px] rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 md:col-span-2 xl:col-span-1">
+              Apply filters
+            </button>
+          </form>
+        </section>
+
         <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
           <section>
             <div className="mb-4 flex items-end justify-between gap-4">
@@ -161,12 +267,17 @@ export default async function OperationsPage() {
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Ticket pipeline</p>
                 <h2 className="mt-1 text-2xl font-bold tracking-tight">Recent tickets</h2>
               </div>
-              <span className="text-sm text-slate-500">Showing up to 50</span>
+              <span className="text-sm text-slate-500">
+                {matchingTicketCount} {matchingTicketCount === 1 ? "match" : "matches"} · showing up to 50
+              </span>
             </div>
 
             <div className="space-y-5">
               {tickets.length === 0 ? (
-                <EmptyState title="No tickets yet" body="Reviewed feedback will appear here after ticket creation." />
+                <EmptyState
+                  title={activeFilterCount > 0 ? "No matching tickets" : "No tickets yet"}
+                  body={activeFilterCount > 0 ? "Try clearing or changing the current filters." : "Reviewed feedback will appear here after ticket creation."}
+                />
               ) : (
                 tickets.map((ticket) => {
                   const nextLabel = nextStatusLabel(ticket.status);
@@ -303,6 +414,34 @@ export default async function OperationsPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function FilterSelect({
+  name,
+  label,
+  allLabel,
+  value,
+  children,
+}: {
+  name: string;
+  label: string;
+  allLabel?: string;
+  value: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block text-sm font-semibold text-slate-700">
+      {label}
+      <select
+        name={name}
+        defaultValue={value}
+        className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+      >
+        <option value="">{allLabel ?? `All ${label.toLowerCase()}s`}</option>
+        {children}
+      </select>
+    </label>
   );
 }
 

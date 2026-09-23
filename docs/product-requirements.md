@@ -93,6 +93,10 @@ A local operator can see ticket totals, recent ticket details, team assignments,
 
 A local operator can open a complete ticket record, compare the original model output with the saved human review, inspect notification history, and explicitly reassign the ticket to another operational team. Reassignment records a manual assignment, refreshes the existing assignment notification for the new owner, and prevents stale ownership updates. An operator can also confirm that a pending local notification was delivered. These controls remain restricted to localhost and do not contact an external email or chat service.
 
+## Phase 2: tenth slice — dashboard search and filters
+
+A local operator can search tickets by readable ticket reference, title, or description and narrow the result set by status, assigned team, and category. Filters are represented in the URL so the same local view can be refreshed or bookmarked. The server validates query values before building the database query, shows the number of matching tickets, and provides an explicit way to clear all active filters. Global summary totals and the notification outbox remain visible while the ticket list is filtered.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

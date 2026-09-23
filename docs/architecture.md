@@ -134,6 +134,10 @@ A server-rendered Next.js page reads tickets, status totals, team ownership, and
 
 A localhost-only dynamic route loads one ticket by its numeric reference and includes the linked feedback audit trail and notification history. Server Actions let an operator explicitly confirm a team reassignment or mark a pending notification as delivered. Reassignment uses a conditional ticket update inside a database transaction, marks the assignment as manual, and upserts the single assignment notification back to `PENDING` for the selected team. Notification delivery uses a conditional state update so a stale page cannot overwrite a concurrent queue change. The controls simulate local operational handling only; they do not send email or chat messages.
 
+## Phase 2 dashboard search-and-filter slice
+
+The operations page reads request-time URL search parameters and validates each value against the known ticket status, team, and category sets. A free-text query searches ticket title and description case-insensitively and recognizes readable references such as `TKT-000001`. Prisma receives only validated filters. A separate count query reports total matches while the result query remains capped at 50 recent tickets. Summary metrics and the pending-notification queue remain global operational context rather than changing with the ticket filters.
+
 ## Design rules
 
 - AI recommends; a human can review and override.
