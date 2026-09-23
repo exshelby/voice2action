@@ -150,6 +150,10 @@ A localhost-only server-rendered review queue reads feedback that has an origina
 
 The review detail route previews the saved title, category, assigned team, starting status, and source revision before ticket creation. A localhost-only Server Action requires explicit confirmation and uses a conditional `INSERT ... SELECT` guarded by the submitted review revision. The statement copies only completed reviewed fields, resolves the assigned team through the same versioned rule map as the terminal workflow, and uses the feedback uniqueness constraint for idempotency. The existing PostgreSQL assignment trigger adds the notification outbox row in the same transaction. Repeated or concurrent requests resolve to the existing ticket and redirect to its detail page.
 
+## Phase 2 ticket-work-log slice
+
+The ticket detail route reads typed work-log entries through the ticket relation and displays them newest first. A localhost-only Server Action validates the ticket identifier, entry type, confirmation, and a 5,000-character body limit before appending a row. The interface exposes no edit or delete action, and closed tickets reject new entries. Advancing an in-progress ticket queries for at least one `RESOLUTION` entry before conditionally updating the status, so resolution has recorded evidence while the existing optimistic concurrency guard remains in place.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

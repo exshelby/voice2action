@@ -109,6 +109,10 @@ A local operator can see transcribed feedback that still needs human review and 
 
 After inspecting a completed review, a local operator can explicitly confirm creating its ticket in the browser. One conditional database statement snapshots the exact submitted review revision, applies the versioned category-to-team rule, and begins the ticket as `OPEN`. The existing assignment trigger queues the team notification in the same transaction. Concurrent or repeated submissions return the single existing ticket instead of creating duplicates. The action remains restricted to localhost and redirects to the full ticket record after success.
 
+## Phase 2: fourteenth slice — auditable ticket work log
+
+A local operator can append investigation and resolution notes to an active ticket from its detail page. Entries are timestamped, typed, and immutable through the interface so the ticket retains a chronological operational record. Closed tickets are read-only. An in-progress ticket cannot move to `RESOLVED` until at least one resolution note exists, and status advancement keeps its existing stale-update protection. Authentication, named operator identities, attachments, editing, and reopening remain future work.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

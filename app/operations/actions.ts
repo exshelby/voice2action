@@ -7,8 +7,10 @@ import {
   NotificationType,
   TicketStatus,
   TicketTeam,
+  TicketWorklogType,
   type TicketStatus as TicketStatusValue,
   type TicketTeam as TicketTeamValue,
+  type TicketWorklogType as TicketWorklogTypeValue,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
@@ -16,6 +18,7 @@ import { requireLocalOperationsRequest } from "./security";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TEAM_VALUES = new Set<TicketTeamValue>(Object.values(TicketTeam));
+const WORKLOG_TYPE_VALUES = new Set<TicketWorklogTypeValue>(Object.values(TicketWorklogType));
 
 const TEAM_LABELS: Record<TicketTeamValue, string> = {
   LOGISTICS: "Logistics",
@@ -77,6 +80,16 @@ export async function advanceTicketFromDashboard(formData: FormData) {
     return;
   }
 
+  if (ticket.status === TicketStatus.IN_PROGRESS) {
+    const resolutionNotes = await prisma.ticketWorklog.count({
+      where: { ticketId, type: TicketWorklogType.RESOLUTION },
+    });
+
+    if (resolutionNotes === 0) {
+      throw new Error("Add a resolution note before moving this ticket to Resolved.");
+    }
+  }
+
   const updated = await prisma.ticket.updateMany({
     where: { id: ticketId, status: ticket.status },
     data: { status: next },
@@ -85,6 +98,46 @@ export async function advanceTicketFromDashboard(formData: FormData) {
   if (updated.count !== 1) {
     throw new Error("This ticket changed while you were updating it. Refresh and try again.");
   }
+
+  revalidateTicketPages(ticket.ticketNumber);
+}
+
+export async function addTicketWorklogFromDashboard(formData: FormData) {
+  await requireLocalOperationsRequest();
+
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const type = String(formData.get("type") ?? "") as TicketWorklogTypeValue;
+  const body = String(formData.get("body") ?? "").trim();
+  const confirmed = formData.get("confirmed") === "yes";
+
+  if (!UUID_PATTERN.test(ticketId)) {
+    throw new Error("A valid ticket ID is required.");
+  }
+  if (!WORKLOG_TYPE_VALUES.has(type)) {
+    throw new Error("Choose a valid work-log type.");
+  }
+  if (body.length < 1 || body.length > 5000) {
+    throw new Error("The work-log note must contain between 1 and 5,000 characters.");
+  }
+  if (!confirmed) {
+    throw new Error("Confirm this append-only work-log entry before continuing.");
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { status: true, ticketNumber: true },
+  });
+
+  if (!ticket) {
+    throw new Error("Ticket not found.");
+  }
+  if (ticket.status === TicketStatus.CLOSED) {
+    throw new Error("Closed tickets cannot receive new work-log entries.");
+  }
+
+  await prisma.ticketWorklog.create({
+    data: { ticketId, type, body },
+  });
 
   revalidateTicketPages(ticket.ticketNumber);
 }

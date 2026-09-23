@@ -5,13 +5,16 @@ import {
   NotificationStatus,
   TicketStatus,
   TicketTeam,
+  TicketWorklogType,
   type NotificationStatus as NotificationStatusValue,
   type TicketStatus as TicketStatusValue,
   type TicketTeam as TicketTeamValue,
+  type TicketWorklogType as TicketWorklogTypeValue,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
 import {
+  addTicketWorklogFromDashboard,
   advanceTicketFromDashboard,
   markNotificationDeliveredFromDashboard,
   reassignTicketFromDashboard,
@@ -82,6 +85,16 @@ const NOTIFICATION_STYLES: Record<NotificationStatusValue, string> = {
   FAILED: "bg-rose-100 text-rose-700",
 };
 
+const WORKLOG_TYPE_LABELS: Record<TicketWorklogTypeValue, string> = {
+  INVESTIGATION: "Investigation",
+  RESOLUTION: "Resolution",
+};
+
+const WORKLOG_TYPE_STYLES: Record<TicketWorklogTypeValue, string> = {
+  INVESTIGATION: "bg-blue-100 text-blue-700",
+  RESOLUTION: "bg-emerald-100 text-emerald-700",
+};
+
 const dateFormatter = new Intl.DateTimeFormat("en-NG", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -141,6 +154,9 @@ export default async function TicketDetailPage({
       notifications: {
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       },
+      worklogs: {
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      },
     },
   });
 
@@ -150,6 +166,8 @@ export default async function TicketDetailPage({
 
   const reference = ticketReference(ticket.ticketNumber);
   const nextLabel = nextStatusLabel(ticket.status);
+  const hasResolutionNote = ticket.worklogs.some((entry) => entry.type === TicketWorklogType.RESOLUTION);
+  const resolutionNoteRequired = ticket.status === TicketStatus.IN_PROGRESS && !hasResolutionNote;
 
   return (
     <main className="min-h-screen bg-[#f4f7fb] text-slate-950">
@@ -188,6 +206,87 @@ export default async function TicketDetailPage({
 
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
         <div className="space-y-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">Work log</p>
+                <h2 className="mt-1 text-xl font-bold">Investigation and resolution</h2>
+              </div>
+              <span className="grid size-9 place-items-center rounded-full bg-blue-50 text-sm font-black text-blue-700">
+                {ticket.worklogs.length}
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {ticket.worklogs.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+                  No work has been recorded yet. Add an investigation note to begin the audit trail.
+                </p>
+              ) : (
+                ticket.worklogs.map((entry) => (
+                  <article key={entry.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${WORKLOG_TYPE_STYLES[entry.type]}`}>
+                        {WORKLOG_TYPE_LABELS[entry.type]}
+                      </span>
+                      <time className="text-xs font-semibold text-slate-500" dateTime={entry.createdAt.toISOString()}>
+                        {dateFormatter.format(entry.createdAt)}
+                      </time>
+                    </div>
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{entry.body}</p>
+                  </article>
+                ))
+              )}
+            </div>
+
+            {ticket.status !== TicketStatus.CLOSED ? (
+              <form action={addTicketWorklogFromDashboard} className="mt-5 space-y-4 border-t border-slate-200 pt-5">
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <label className="block text-sm font-semibold text-slate-700">
+                  Entry type
+                  <select
+                    name="type"
+                    required
+                    defaultValue={TicketWorklogType.INVESTIGATION}
+                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value={TicketWorklogType.INVESTIGATION}>Investigation</option>
+                    <option value={TicketWorklogType.RESOLUTION}>Resolution</option>
+                  </select>
+                </label>
+                <label className="block text-sm font-semibold text-slate-700">
+                  Operator note
+                  <textarea
+                    name="body"
+                    required
+                    minLength={1}
+                    maxLength={5000}
+                    rows={4}
+                    placeholder="Record what was checked, found, or done."
+                    className="mt-2 w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </label>
+                <label className="flex items-start gap-2 text-sm text-slate-600">
+                  <input
+                    type="checkbox"
+                    name="confirmed"
+                    value="yes"
+                    required
+                    className="mt-0.5 size-4 rounded border-slate-300 accent-blue-600"
+                  />
+                  Confirm this permanent work-log entry
+                </label>
+                <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700">
+                  Add work-log entry
+                </button>
+              </form>
+            ) : (
+              <p className="mt-5 border-t border-slate-200 pt-5 text-sm font-semibold text-slate-500">
+                The work log is read-only because this ticket is closed.
+              </p>
+            )}
+          </section>
+
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Ticket record</p>
             <h2 className="mt-1 text-xl font-bold">Operational details</h2>
@@ -313,13 +412,23 @@ export default async function TicketDetailPage({
                     name="confirmed"
                     value="yes"
                     required
+                    disabled={resolutionNoteRequired}
                     className="mt-0.5 size-4 rounded border-slate-300 accent-indigo-600"
                   />
                   Confirm this one-step status change
                 </label>
-                <button type="submit" className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700">
+                <button
+                  type="submit"
+                  disabled={resolutionNoteRequired}
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                >
                   Move to {nextLabel}
                 </button>
+                {resolutionNoteRequired ? (
+                  <p className="text-xs leading-5 text-amber-700">
+                    A resolution note is required before this ticket can move to Resolved.
+                  </p>
+                ) : null}
               </form>
             ) : (
               <p className="mt-5 border-t border-slate-100 pt-5 text-sm font-semibold text-emerald-700">
