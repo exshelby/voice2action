@@ -69,6 +69,10 @@ After transcription, save a first-pass issue category and a short description li
 
 Before creating a ticket, a local operator reviews the transcript, category, and short description. The operator can correct the words and category while the original model output remains available for comparison. The reviewed values are saved separately, with a review timestamp. Automated confidence does not waive human review. This slice does not expose recordings or transcripts through a public operations page.
 
+## Phase 2: fourth slice — review-gated ticket creation
+
+An operator can preview and explicitly confirm a ticket created from human-reviewed feedback. The ticket begins as `OPEN` and stores a snapshot of the reviewed title, description, category, review timestamp, and review revision. Feedback without a completed human review cannot create a ticket. A database uniqueness rule ensures that one feedback record cannot create duplicate tickets. Assignment, notifications, resolution workflow, and an operations dashboard are not included in this slice.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

@@ -12,7 +12,9 @@
     "transcribe:show": "node scripts/show-transcript.mjs",
     "classify:once": "node scripts/classify-feedback.mjs --once",
     "classify:watch": "node scripts/classify-feedback.mjs --watch",
-    "review:feedback": "node scripts/review-feedback.mjs"
+    "review:feedback": "node scripts/review-feedback.mjs",
+    "ticket:create": "node scripts/create-ticket.mjs",
+    "ticket:show": "node scripts/show-ticket.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

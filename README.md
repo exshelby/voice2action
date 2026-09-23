@@ -40,7 +40,7 @@ The first milestone is one real voice recording successfully moving from the cus
 
 ## Project status
 
-Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription plus a first-pass local category and short description. Ticket creation and team routing are still future work.
+Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, and review-gated local ticket creation. Team routing and notifications are still future work.
 
 ## Local transcription setup (Windows)
 
@@ -87,4 +87,15 @@ Machine transcription and classification can be wrong. Every feedback record mus
 npm run review:feedback -- <feedback ID>
 ```
 
-The command shows the model's original transcript, category, and short description. Type the full corrected wording, choose a category number, and confirm the short description. Press Enter at a prompt to keep the displayed default. Nothing is saved until you type `yes` at the final confirmation. The original transcript and model classification remain unchanged; corrected wording, reviewed category, reviewed short description, and review time are stored separately. Use `npm run transcribe:show -- <feedback ID>` to compare the original and reviewed versions. This initial review tool runs only in a local terminal; no public review webpage or ticket-creation flow is available yet.
+The command shows the model's original transcript, category, and short description. Type the full corrected wording, choose a category number, and confirm the short description. Press Enter at a prompt to keep the displayed default. Nothing is saved until you type `yes` at the final confirmation. The original transcript and model classification remain unchanged; corrected wording, reviewed category, reviewed short description, and review time are stored separately. Use `npm run transcribe:show -- <feedback ID>` to compare the original and reviewed versions. This initial review tool runs only in a local terminal; no public review webpage is available yet.
+
+## Review-gated local tickets
+
+A ticket can be created only after human review is complete. The ticket copies the reviewed short description, corrected wording, category, review timestamp, and review revision so its source is auditable. One feedback ID can create only one ticket; running the command again returns the existing ticket instead of creating a duplicate.
+
+```powershell
+npm run ticket:create -- <feedback ID>
+npm run ticket:show -- TKT-000001
+```
+
+The create command previews the ticket and requires typing `yes`. New tickets start with status `Open`. This slice stores and displays tickets locally; assignment, notifications, status-changing commands, and an operations dashboard remain future work.

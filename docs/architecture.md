@@ -110,6 +110,10 @@ A separate worker polls for `PROCESSED` feedback with a transcript and no catego
 
 A local-only interactive command loads one feedback record by ID and shows the original model output. The operator can correct the wording, choose a category, edit the short description, and must explicitly confirm before saving. Reviewed fields and review time are separate from the original transcript and model classification. An integer review revision prevents one review session from silently overwriting a concurrent change. All feedback still requires human review before a future ticket is created, even if the classifier's automated review flag is false. No public review API or ticket creation is added in this slice.
 
+## Phase 2 review-gated ticket slice
+
+A local interactive command previews a ticket from reviewed feedback and requires explicit confirmation. Creation uses one atomic `INSERT ... SELECT` statement that succeeds only when all reviewed fields and a positive review revision exist. The ticket snapshots the reviewed title, description, category, review time, and revision. A unique database index on `feedback_id`, together with `ON CONFLICT DO NOTHING`, makes repeated or concurrent creation requests idempotent. Tickets receive a readable reference such as `TKT-000001` and start as `OPEN`. This slice has no public ticket API, assignment logic, notifications, or status-transition interface.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

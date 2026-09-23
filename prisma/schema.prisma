@@ -16,6 +16,15 @@ enum FeedbackStatus {
   @@map("feedback_status")
 }
 
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+
+  @@map("ticket_status")
+}
+
 model Feedback {
   id                        String         @id @default(uuid()) @db.Uuid
   createdAt                 DateTime       @default(now()) @map("created_at")
@@ -42,8 +51,28 @@ model Feedback {
   reviewedAt                DateTime?      @map("reviewed_at")
   reviewRevision            Int            @default(0) @map("review_revision")
   status                    FeedbackStatus @default(RECEIVED)
+  ticket                    Ticket?
 
   @@index([status])
   @@index([createdAt])
   @@map("feedback")
+}
+
+model Ticket {
+  id                   String       @id @default(uuid()) @db.Uuid
+  ticketNumber         Int          @unique @default(autoincrement()) @map("ticket_number")
+  feedbackId           String       @unique @map("feedback_id") @db.Uuid
+  title                String
+  description          String       @db.Text
+  category             String
+  sourceReviewRevision Int          @map("source_review_revision")
+  sourceReviewedAt     DateTime     @map("source_reviewed_at")
+  status               TicketStatus @default(OPEN)
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+  feedback             Feedback     @relation(fields: [feedbackId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("ticket")
 }
