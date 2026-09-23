@@ -85,6 +85,10 @@ Each reviewed category maps to one operational team under a versioned local rule
 
 Assigning a ticket creates exactly one pending notification for its team in the same database transaction. Existing assigned tickets receive a backfilled notification. An operator can list pending notifications locally without marking them as delivered. The queue stores delivery state, attempt count, failure details, and sent time for a future email or chat sender. This slice does not contact an external service.
 
+## Phase 2: eighth slice — local operations dashboard
+
+A local operator can see ticket totals, recent ticket details, team assignments, lifecycle progress, and pending notification messages in one browser screen. The operator can explicitly confirm a one-step status advance. The server must re-read ticket state and prevent stale updates. Database access remains server-side, and the page is limited to localhost. Authentication, public deployment, filters, pagination, and manual reassignment remain future work.
+
 ## Phase 1 success test
 
 Phase 1 is complete when:

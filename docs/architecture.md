@@ -126,6 +126,10 @@ Reviewed ticket categories map deterministically to an operational team under a 
 
 A PostgreSQL trigger creates one `PENDING` notification whenever a ticket first receives a team. Notification creation occurs in the same transaction as ticket creation or assignment, and a unique ticket-and-event constraint prevents duplicate assignment notifications. The migration backfills already-assigned tickets. A read-only local command lists pending messages without pretending they were externally delivered. Delivery attempts, errors, and sent timestamps are modeled for a later email or chat worker.
 
+## Phase 2 local operations-dashboard slice
+
+A server-rendered Next.js page reads tickets, status totals, team ownership, and pending notifications directly from PostgreSQL. Database credentials and raw records stay on the server. A Server Action advances tickets by one valid step, re-reads trusted database state, validates the ticket identifier, uses an optimistic status condition, and revalidates the dashboard. Both page and mutation are restricted to localhost. The browser form requires an explicit confirmation checkbox. This is a local operator tool, not a public authenticated administration surface.
+
 ## Design rules
 
 - AI recommends; a human can review and override.

@@ -42,6 +42,8 @@ The first milestone is one real voice recording successfully moving from the cus
 
 Phase 1 capture and n8n receipt are working. Phase 2 now has local transcription, first-pass local categorization, human correction, review-gated local ticket creation, rule-based team assignment, a local notification outbox, and a local ticket status workflow. External notification delivery is still future work.
 
+The local operations dashboard is available at `http://localhost:3000/operations` while `npm run dev` is running. It shows ticket totals, recent tickets, assigned teams, status progress, and pending notification messages. Status changes advance one step at a time and require checking a confirmation box. For safety, the dashboard and its mutation action accept localhost requests only; authentication is required before any future public deployment.
+
 ## Local transcription setup (Windows)
 
 Keep PostgreSQL and n8n running as in Phase 1. Python 3.9+ is required. Faster-Whisper includes audio decoding, so a separate FFmpeg installation is not needed.
